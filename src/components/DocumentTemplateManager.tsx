@@ -6,6 +6,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { FileUp, Trash2, Edit2, Plus } from "lucide-react";
 import mammoth from "mammoth";
 import * as pdfjsLib from 'pdfjs-dist';
+import { analyzeDocument, processImage } from "@/utils/documentAnalysis";
 
 // Initialize PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
@@ -45,6 +46,7 @@ export const DocumentTemplateManager = () => {
 
     try {
       let text = "";
+      let extractedFields = {};
       
       if (file.type === "application/pdf") {
         const arrayBuffer = await file.arrayBuffer();
@@ -52,21 +54,28 @@ export const DocumentTemplateManager = () => {
         const page = await pdf.getPage(1);
         const textContent = await page.getTextContent();
         text = textContent.items.map((item: any) => item.str).join(' ');
+        extractedFields = await analyzeDocument(text);
       } else if (file.type.includes("word")) {
         const arrayBuffer = await file.arrayBuffer();
         const result = await mammoth.extractRawText({ arrayBuffer });
         text = result.value;
+        extractedFields = await analyzeDocument(text);
+      } else if (file.type.includes("image")) {
+        extractedFields = await processImage(file);
+        text = "Image document";
       } else {
         text = await file.text();
+        extractedFields = await analyzeDocument(text);
       }
 
       console.log("Document text extracted:", text);
+      console.log("Fields extracted:", extractedFields);
       
       const newTemplate: Template = {
         id: Date.now().toString(),
         name: file.name,
         type: file.type,
-        fields: ["nome", "cpf", "rg"], // Default fields, would be AI-generated
+        fields: Object.keys(extractedFields),
         createdAt: new Date(),
       };
 
