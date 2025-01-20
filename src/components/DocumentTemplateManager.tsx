@@ -5,7 +5,10 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { FileUp, Trash2, Edit2, Plus } from "lucide-react";
 import mammoth from "mammoth";
-import * as pdfjs from "pdf-parse";
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Initialize PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 interface Template {
   id: string;
@@ -45,8 +48,10 @@ export const DocumentTemplateManager = () => {
       
       if (file.type === "application/pdf") {
         const arrayBuffer = await file.arrayBuffer();
-        const data = await pdfjs(Buffer.from(arrayBuffer));
-        text = data.text;
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const page = await pdf.getPage(1);
+        const textContent = await page.getTextContent();
+        text = textContent.items.map((item: any) => item.str).join(' ');
       } else if (file.type.includes("word")) {
         const arrayBuffer = await file.arrayBuffer();
         const result = await mammoth.extractRawText({ arrayBuffer });
@@ -55,7 +60,6 @@ export const DocumentTemplateManager = () => {
         text = await file.text();
       }
 
-      // Here we would send the text to an AI model for field extraction
       console.log("Document text extracted:", text);
       
       const newTemplate: Template = {
