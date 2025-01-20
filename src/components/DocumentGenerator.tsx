@@ -10,14 +10,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search } from "lucide-react";
+import { Camera, FileUp, Plus, Search } from "lucide-react";
 import { DocumentForm } from "./DocumentForm";
 import { DocumentCategory, DocumentType } from "@/types/documents";
+import { useToast } from "@/components/ui/use-toast";
+import Tesseract from 'tesseract.js';
 
 export const DocumentGenerator = () => {
   const [selectedCategory, setSelectedCategory] = useState<DocumentCategory>();
   const [selectedType, setSelectedType] = useState<DocumentType>();
   const [searchQuery, setSearchQuery] = useState("");
+  const { toast } = useToast();
 
   const categories = [
     { value: DocumentCategory.CONTRACT, label: "Contratos" },
@@ -48,14 +51,133 @@ export const DocumentGenerator = () => {
             label: "Carta de Reajuste",
           },
         ];
-      // Add other categories as needed
       default:
         return [];
     }
   };
 
+  const handleNewCategory = () => {
+    console.log("New category button clicked");
+    // TODO: Implement new category creation dialog
+    toast({
+      title: "Em desenvolvimento",
+      description: "A criação de novas categorias estará disponível em breve.",
+    });
+  };
+
+  const handleNewTemplate = () => {
+    console.log("New template button clicked");
+    // TODO: Implement new template creation flow
+    toast({
+      title: "Em desenvolvimento",
+      description: "A criação de novos modelos estará disponível em breve.",
+    });
+  };
+
+  const handleImageCapture = async (file: File) => {
+    try {
+      console.log("Starting OCR processing");
+      toast({
+        title: "Processando documento",
+        description: "Aguarde enquanto extraímos as informações...",
+      });
+
+      const result = await Tesseract.recognize(file, 'por', {
+        logger: m => console.log(m)
+      });
+
+      console.log("OCR Result:", result.data.text);
+
+      // Extract common fields using regex patterns
+      const cpfPattern = /\d{3}\.?\d{3}\.?\d{3}-?\d{2}/;
+      const rgPattern = /\d{1,2}\.?\d{3}\.?\d{3}-?\d{1}/;
+      const creciPattern = /CRECI.*?(\d+)/i;
+      const oabPattern = /OAB.*?(\d+)/i;
+
+      const extractedData = {
+        cpf: result.data.text.match(cpfPattern)?.[0],
+        rg: result.data.text.match(rgPattern)?.[0],
+        creci: result.data.text.match(creciPattern)?.[1],
+        oab: result.data.text.match(oabPattern)?.[1],
+      };
+
+      console.log("Extracted data:", extractedData);
+      
+      toast({
+        title: "Dados extraídos com sucesso!",
+        description: "Os campos foram preenchidos automaticamente.",
+      });
+
+      // TODO: Update form with extracted data
+    } catch (error) {
+      console.error("OCR Error:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro no processamento",
+        description: "Não foi possível extrair os dados do documento.",
+      });
+    }
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      handleImageCapture(file);
+    }
+  };
+
+  const captureImage = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      // TODO: Implement camera capture UI
+      console.log("Camera access granted:", stream);
+      
+      toast({
+        title: "Câmera ativada",
+        description: "Posicione o documento no centro da tela.",
+      });
+    } catch (error) {
+      console.error("Camera access error:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro de acesso",
+        description: "Não foi possível acessar a câmera.",
+      });
+    }
+  };
+
   return (
     <div className="space-y-4">
+      <div className="flex justify-between items-center mb-6">
+        <Button onClick={handleNewTemplate} className="flex items-center gap-2">
+          <Plus className="w-4 h-4" />
+          Novo Modelo de Documento
+        </Button>
+        <div className="flex gap-2">
+          <Button onClick={captureImage} variant="outline" className="flex items-center gap-2">
+            <Camera className="w-4 h-4" />
+            Capturar
+          </Button>
+          <div className="relative">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleFileSelect}
+              className="hidden"
+              id="image-upload"
+            />
+            <Button
+              variant="outline"
+              className="flex items-center gap-2"
+              onClick={() => document.getElementById("image-upload")?.click()}
+            >
+              <FileUp className="w-4 h-4" />
+              Carregar Imagem
+            </Button>
+          </div>
+        </div>
+      </div>
+
       <Card className="p-4">
         <div className="flex items-center space-x-4 mb-4">
           <div className="relative flex-1">
@@ -67,6 +189,9 @@ export const DocumentGenerator = () => {
               className="pl-10"
             />
           </div>
+          <Button onClick={handleNewCategory} variant="outline" size="icon">
+            <Plus className="h-4 w-4" />
+          </Button>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
