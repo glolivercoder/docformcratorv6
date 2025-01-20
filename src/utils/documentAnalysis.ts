@@ -12,11 +12,16 @@ interface ExtractedFields {
   orgaoEmissor?: string;
 }
 
+interface ZeroShotResult {
+  sequence: string;
+  labels: string[];
+  scores: number[];
+}
+
 export const analyzeDocument = async (text: string): Promise<ExtractedFields> => {
   console.log("Starting document analysis with text:", text);
   
   try {
-    // Initialize the zero-shot classification pipeline
     const classifier = await pipeline(
       "zero-shot-classification",
       "facebook/bart-large-mnli",
@@ -42,7 +47,7 @@ export const analyzeDocument = async (text: string): Promise<ExtractedFields> =>
     for (const line of lines) {
       if (!line.trim()) continue;
 
-      const result = await classifier(line, labels);
+      const result = await classifier(line, labels) as ZeroShotResult;
       const bestMatch = result.labels[0];
       const confidence = result.scores[0];
 
