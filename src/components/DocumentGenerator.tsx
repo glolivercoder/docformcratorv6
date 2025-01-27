@@ -15,12 +15,14 @@ import { DocumentForm } from "./DocumentForm";
 import { DocumentCategory, DocumentType } from "@/types/documents";
 import { useToast } from "@/components/ui/use-toast";
 import Tesseract from 'tesseract.js';
+import { processImageWithGemini } from "@/utils/geminiVision";
 
 export const DocumentGenerator = () => {
   const [selectedCategory, setSelectedCategory] = useState<DocumentCategory>();
   const [selectedType, setSelectedType] = useState<DocumentType>();
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
+  const [ocrMethod, setOcrMethod] = useState<'tesseract' | 'gemini'>('tesseract');
 
   const categories = [
     { value: DocumentCategory.CONTRACT, label: "Contratos" },
@@ -58,7 +60,6 @@ export const DocumentGenerator = () => {
 
   const handleNewCategory = () => {
     console.log("New category button clicked");
-    // TODO: Implement new category creation dialog
     toast({
       title: "Em desenvolvimento",
       description: "A criação de novas categorias estará disponível em breve.",
@@ -67,7 +68,6 @@ export const DocumentGenerator = () => {
 
   const handleNewTemplate = () => {
     console.log("New template button clicked");
-    // TODO: Implement new template creation flow
     toast({
       title: "Em desenvolvimento",
       description: "A criação de novos modelos estará disponível em breve.",
@@ -76,30 +76,35 @@ export const DocumentGenerator = () => {
 
   const handleImageCapture = async (file: File) => {
     try {
-      console.log("Starting OCR processing");
+      console.log("Starting OCR processing with method:", ocrMethod);
       toast({
         title: "Processando documento",
         description: "Aguarde enquanto extraímos as informações...",
       });
 
-      const result = await Tesseract.recognize(file, 'por', {
-        logger: m => console.log(m)
-      });
+      let extractedData;
 
-      console.log("OCR Result:", result.data.text);
+      if (ocrMethod === 'gemini') {
+        extractedData = await processImageWithGemini(file);
+      } else {
+        const result = await Tesseract.recognize(file, 'por', {
+          logger: m => console.log(m)
+        });
 
-      // Extract common fields using regex patterns
-      const cpfPattern = /\d{3}\.?\d{3}\.?\d{3}-?\d{2}/;
-      const rgPattern = /\d{1,2}\.?\d{3}\.?\d{3}-?\d{1}/;
-      const creciPattern = /CRECI.*?(\d+)/i;
-      const oabPattern = /OAB.*?(\d+)/i;
+        console.log("OCR Result:", result.data.text);
 
-      const extractedData = {
-        cpf: result.data.text.match(cpfPattern)?.[0],
-        rg: result.data.text.match(rgPattern)?.[0],
-        creci: result.data.text.match(creciPattern)?.[1],
-        oab: result.data.text.match(oabPattern)?.[1],
-      };
+        const cpfPattern = /\d{3}\.?\d{3}\.?\d{3}-?\d{2}/;
+        const rgPattern = /\d{1,2}\.?\d{3}\.?\d{3}-?\d{1}/;
+        const creciPattern = /CRECI.*?(\d+)/i;
+        const oabPattern = /OAB.*?(\d+)/i;
+
+        extractedData = {
+          cpf: result.data.text.match(cpfPattern)?.[0],
+          rg: result.data.text.match(rgPattern)?.[0],
+          creci: result.data.text.match(creciPattern)?.[1],
+          oab: result.data.text.match(oabPattern)?.[1],
+        };
+      }
 
       console.log("Extracted data:", extractedData);
       
@@ -129,7 +134,6 @@ export const DocumentGenerator = () => {
   const captureImage = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      // TODO: Implement camera capture UI
       console.log("Camera access granted:", stream);
       
       toast({
@@ -154,6 +158,18 @@ export const DocumentGenerator = () => {
           Novo Modelo de Documento
         </Button>
         <div className="flex gap-2">
+          <Select
+            value={ocrMethod}
+            onValueChange={(value: 'tesseract' | 'gemini') => setOcrMethod(value)}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Método OCR" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="tesseract">Tesseract OCR</SelectItem>
+              <SelectItem value="gemini">Google Gemini</SelectItem>
+            </SelectContent>
+          </Select>
           <Button onClick={captureImage} variant="outline" className="flex items-center gap-2">
             <Camera className="w-4 h-4" />
             Capturar
