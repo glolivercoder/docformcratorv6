@@ -12,6 +12,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Camera, FileUp, Plus, Search } from "lucide-react";
 import { DocumentForm } from "./DocumentForm";
+import { ApiKeyManager } from "./ApiKeyManager";
 import { DocumentCategory, DocumentType } from "@/types/documents";
 import { useToast } from "@/components/ui/use-toast";
 import Tesseract from 'tesseract.js';
@@ -152,6 +153,8 @@ export const DocumentGenerator = () => {
 
   return (
     <div className="space-y-4">
+      <ApiKeyManager />
+      
       <div className="flex justify-between items-center mb-6">
         <Button onClick={handleNewTemplate} className="flex items-center gap-2">
           <Plus className="w-4 h-4" />

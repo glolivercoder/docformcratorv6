@@ -1,11 +1,15 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Initialize Gemini API with Vite's environment variable format
-const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || '');
-
 export const processImageWithGemini = async (imageFile: File) => {
   try {
     console.log("Starting Gemini image processing");
+    
+    const apiKey = localStorage.getItem("geminiApiKey");
+    if (!apiKey) {
+      throw new Error("Gemini API key not found. Please configure it in the settings.");
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
     
     // Convert File to base64
     const base64Image = await new Promise<string>((resolve) => {
