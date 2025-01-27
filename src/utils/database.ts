@@ -1,4 +1,4 @@
-import { Database } from '@capacitor-community/sqlite';
+import { SQLite, SQLiteObject } from '@capacitor-community/sqlite';
 
 export interface RealEstateContract {
   id: number;
@@ -52,16 +52,25 @@ export interface RealEstateContract {
   };
 }
 
-const createTables = async () => {
-  try {
-    const db = new Database({
-      name: 'realestate.db',
-      location: 'default',
-    });
+class DatabaseService {
+  private db: SQLiteObject | null = null;
 
-    await db.open();
+  async initDatabase() {
+    try {
+      const sqlite = new SQLite();
+      this.db = await sqlite.createConnection('realestate.db');
+      await this.db.open();
+      
+      await this.createTables();
+      console.log("Database initialized successfully");
+    } catch (error) {
+      console.error("Error initializing database:", error);
+      throw error;
+    }
+  }
 
-    await db.execute(`
+  private async createTables() {
+    const query = `
       CREATE TABLE IF NOT EXISTS contracts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         buildingName TEXT NOT NULL,
@@ -97,27 +106,24 @@ const createTables = async () => {
         witness2Name TEXT,
         witness2Cpf TEXT,
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
+      )
+    `;
 
-    console.log("Database tables created successfully");
-  } catch (error) {
-    console.error("Error creating database tables:", error);
+    try {
+      await this.db?.execute(query);
+      console.log("Tables created successfully");
+    } catch (error) {
+      console.error("Error creating tables:", error);
+      throw error;
+    }
   }
-};
 
-export const initDatabase = async () => {
-  await createTables();
-};
+  async saveContract(contract: RealEstateContract) {
+    if (!this.db) {
+      throw new Error("Database not initialized");
+    }
 
-export const saveContract = async (contract: RealEstateContract) => {
-  try {
-    const db = await Database.open({
-      name: 'realestate.db',
-      location: 'default',
-    });
-
-    const result = await db.execute(`
+    const query = `
       INSERT INTO contracts (
         buildingName, apartmentNumber, sellerName, sellerNationality,
         sellerMaritalStatus, sellerAddress, sellerDocument, buyerName,
@@ -126,8 +132,10 @@ export const saveContract = async (contract: RealEstateContract) => {
         area, parkingSpaces, privateArea, commonArea, totalArea,
         idealFraction, totalPrice, downPayment, fgtsValue, installments,
         contractDate, witness1Name, witness1Cpf, witness2Name, witness2Cpf
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-    `, [
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    const values = [
       contract.buildingName,
       contract.apartmentNumber,
       contract.seller.name,
@@ -160,12 +168,17 @@ export const saveContract = async (contract: RealEstateContract) => {
       contract.witnesses.witness1.cpf,
       contract.witnesses.witness2.name,
       contract.witnesses.witness2.cpf
-    ]);
+    ];
 
-    console.log("Contract saved successfully:", result);
-    return result;
-  } catch (error) {
-    console.error("Error saving contract:", error);
-    throw error;
+    try {
+      const result = await this.db.execute(query, values);
+      console.log("Contract saved successfully:", result);
+      return result;
+    } catch (error) {
+      console.error("Error saving contract:", error);
+      throw error;
+    }
   }
-};
+}
+
+export const databaseService = new DatabaseService();
