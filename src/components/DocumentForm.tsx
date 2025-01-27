@@ -1,33 +1,57 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DocumentType } from "@/types/documents";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import { FileDown, Image, Printer } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { documentTypes, formatarDataPorExtenso } from "@/utils/documentTypes";
 
 interface DocumentFormProps {
   documentType: DocumentType;
 }
 
 export const DocumentForm = ({ documentType }: DocumentFormProps) => {
-  const [formData, setFormData] = useState({
-    clientName: "",
-    cpf: "",
-    address: "",
-    propertyAddress: "",
-    propertyValue: "",
-    startDate: "",
-    endDate: "",
-  });
+  const [formData, setFormData] = useState<any>({}); // Using any temporarily, should be properly typed
   const { toast } = useToast();
+  const [useSystemDate, setUseSystemDate] = useState(false);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    console.log("Form data updated:", { name, value });
+  useEffect(() => {
+    // Initialize form data based on document type
+    const docType = documentType === DocumentType.LEASE_CONTRACT ? 'contratoLocacao' 
+                  : documentType === DocumentType.SALE_CONTRACT ? 'contratoVenda'
+                  : 'recibo';
+    setFormData(documentTypes[docType].fields);
+  }, [documentType]);
+
+  useEffect(() => {
+    if (useSystemDate) {
+      const currentDate = formatarDataPorExtenso(new Date());
+      handleInputChange('dataPorExtenso', currentDate);
+    }
+  }, [useSystemDate]);
+
+  const handleInputChange = (field: string, value: any, parent: string | null = null) => {
+    setFormData(prev => {
+      if (parent) {
+        return {
+          ...prev,
+          [parent]: {
+            ...prev[parent],
+            [field]: value
+          }
+        };
+      }
+      return {
+        ...prev,
+        [field]: value
+      };
+    });
+    console.log("Form data updated:", { field, value, parent });
   };
 
   const generatePDF = async () => {
@@ -83,81 +107,61 @@ export const DocumentForm = ({ documentType }: DocumentFormProps) => {
     }
   };
 
+  const renderField = (fieldName: string, value: any, parent: string | null = null) => {
+    if (fieldName === 'usarDataSistema') {
+      return (
+        <div key={`${parent}-${fieldName}`} className="flex items-center space-x-2 mb-4">
+          <Checkbox
+            id={`${parent}-${fieldName}`}
+            checked={useSystemDate}
+            onCheckedChange={(checked: boolean) => {
+              setUseSystemDate(checked);
+              handleInputChange(fieldName, checked, parent);
+            }}
+          />
+          <Label htmlFor={`${parent}-${fieldName}`}>
+            Usar data atual do sistema
+          </Label>
+        </div>
+      );
+    }
+
+    return (
+      <div key={`${parent}-${fieldName}`} className="mb-4">
+        <Label htmlFor={`${parent}-${fieldName}`}>
+          {fieldName.charAt(0).toUpperCase() + fieldName.slice(1)}
+        </Label>
+        <Input
+          id={`${parent}-${fieldName}`}
+          value={value}
+          onChange={(e) => handleInputChange(fieldName, e.target.value, parent)}
+          disabled={fieldName === 'dataPorExtenso' && useSystemDate}
+        />
+      </div>
+    );
+  };
+
+  const renderFields = (fields: any, parent: string | null = null) => {
+    return Object.entries(fields).map(([fieldName, value]) => {
+      if (typeof value === 'object' && !Array.isArray(value)) {
+        return (
+          <Card key={fieldName} className="p-4 mb-4">
+            <h3 className="text-lg font-semibold mb-4">
+              {fieldName.charAt(0).toUpperCase() + fieldName.slice(1)}
+            </h3>
+            {renderFields(value, fieldName)}
+          </Card>
+        );
+      }
+      return renderField(fieldName, value, parent);
+    });
+  };
+
   return (
     <div className="space-y-4">
       <Card className="p-6">
         <h2 className="text-xl font-semibold mb-4">Formulário do Documento</h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nome do Cliente
-            </label>
-            <Input
-              name="clientName"
-              value={formData.clientName}
-              onChange={handleInputChange}
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              CPF
-            </label>
-            <Input
-              name="cpf"
-              value={formData.cpf}
-              onChange={handleInputChange}
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Endereço
-            </label>
-            <Input
-              name="address"
-              value={formData.address}
-              onChange={handleInputChange}
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Endereço do Imóvel
-            </label>
-            <Input
-              name="propertyAddress"
-              value={formData.propertyAddress}
-              onChange={handleInputChange}
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Valor
-            </label>
-            <Input
-              name="propertyValue"
-              value={formData.propertyValue}
-              onChange={handleInputChange}
-              type="number"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Data de Início
-            </label>
-            <Input
-              name="startDate"
-              value={formData.startDate}
-              onChange={handleInputChange}
-              type="date"
-            />
-          </div>
-        </div>
-
+        {renderFields(formData)}
         <div className="flex gap-2">
           <Button onClick={generatePDF} className="flex items-center gap-2">
             <FileDown className="w-4 h-4" />
@@ -187,21 +191,21 @@ export const DocumentForm = ({ documentType }: DocumentFormProps) => {
               : "Documento"}
           </h1>
           
-          <p className="mb-4">
-            Pelo presente instrumento particular, de um lado{" "}
-            <strong>{formData.clientName}</strong>, portador do CPF{" "}
-            <strong>{formData.cpf}</strong>, residente e domiciliado à{" "}
-            <strong>{formData.address}</strong>, doravante denominado CONTRATANTE,
-            e de outro lado...
-          </p>
-          
-          <p className="mb-4">
-            Referente ao imóvel situado à{" "}
-            <strong>{formData.propertyAddress}</strong>, pelo valor de R${" "}
-            <strong>{formData.propertyValue}</strong>...
-          </p>
-          
-          {/* Add more document content based on the type */}
+          {/* Document content will be rendered here based on formData */}
+          <div className="space-y-4">
+            {Object.entries(formData).map(([section, data]: [string, any]) => (
+              <div key={section}>
+                <h2 className="text-xl font-semibold">{section.charAt(0).toUpperCase() + section.slice(1)}</h2>
+                {Object.entries(data).map(([field, value]: [string, any]) => (
+                  typeof value !== 'object' && (
+                    <p key={field} className="mb-2">
+                      <strong>{field.charAt(0).toUpperCase() + field.slice(1)}:</strong> {value}
+                    </p>
+                  )
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
       </Card>
     </div>
