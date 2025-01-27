@@ -5,8 +5,13 @@ export const processImageWithGemini = async (imageFile: File) => {
     console.log("Starting Gemini image processing");
     
     const apiKey = localStorage.getItem("geminiApiKey");
-    if (!apiKey) {
-      throw new Error("Gemini API key not found. Please configure it in the settings.");
+    if (!apiKey || apiKey.trim() === '') {
+      throw new Error("Please configure your Gemini API key in the settings first.");
+    }
+
+    // Validate API key format (basic check)
+    if (!apiKey.startsWith('AI') || apiKey.length < 10) {
+      throw new Error("The provided API key appears to be invalid. Please check your Gemini API key format.");
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
