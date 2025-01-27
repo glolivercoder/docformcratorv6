@@ -1,7 +1,8 @@
-import { SQLite, SQLiteObject } from '@capacitor-community/sqlite';
+import Database from 'better-sqlite3';
+import { toast } from "@/components/ui/use-toast";
 
 export interface RealEstateContract {
-  id: number;
+  id?: number;
   buildingName: string;
   apartmentNumber: string;
   seller: {
@@ -53,18 +54,27 @@ export interface RealEstateContract {
 }
 
 class DatabaseService {
-  private db: SQLiteObject | null = null;
+  private db: Database.Database | null = null;
 
   async initDatabase() {
     try {
-      const sqlite = new SQLite();
-      this.db = await sqlite.createConnection('realestate.db');
-      await this.db.open();
+      console.log("Initializing database...");
+      this.db = new Database('realestate.db');
       
       await this.createTables();
       console.log("Database initialized successfully");
+      
+      toast({
+        title: "Database Connection",
+        description: "Successfully connected to database",
+      });
     } catch (error) {
       console.error("Error initializing database:", error);
+      toast({
+        variant: "destructive",
+        title: "Database Error",
+        description: "Failed to connect to database",
+      });
       throw error;
     }
   }
@@ -110,7 +120,7 @@ class DatabaseService {
     `;
 
     try {
-      await this.db?.execute(query);
+      this.db?.exec(query);
       console.log("Tables created successfully");
     } catch (error) {
       console.error("Error creating tables:", error);
@@ -123,7 +133,7 @@ class DatabaseService {
       throw new Error("Database not initialized");
     }
 
-    const query = `
+    const stmt = this.db.prepare(`
       INSERT INTO contracts (
         buildingName, apartmentNumber, sellerName, sellerNationality,
         sellerMaritalStatus, sellerAddress, sellerDocument, buyerName,
@@ -132,46 +142,48 @@ class DatabaseService {
         area, parkingSpaces, privateArea, commonArea, totalArea,
         idealFraction, totalPrice, downPayment, fgtsValue, installments,
         contractDate, witness1Name, witness1Cpf, witness2Name, witness2Cpf
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-
-    const values = [
-      contract.buildingName,
-      contract.apartmentNumber,
-      contract.seller.name,
-      contract.seller.nationality,
-      contract.seller.maritalStatus,
-      contract.seller.address,
-      contract.seller.document,
-      contract.buyer.name,
-      contract.buyer.nationality,
-      contract.buyer.maritalStatus,
-      contract.buyer.address,
-      contract.buyer.document,
-      contract.bank.name,
-      contract.bank.address,
-      contract.bank.cnpj,
-      contract.property.address,
-      contract.property.registryNumber,
-      contract.property.area,
-      contract.property.parkingSpaces,
-      contract.property.privateArea,
-      contract.property.commonArea,
-      contract.property.totalArea,
-      contract.property.idealFraction,
-      contract.payment.totalPrice,
-      contract.payment.downPayment,
-      contract.payment.fgtsValue,
-      contract.payment.installments,
-      contract.date,
-      contract.witnesses.witness1.name,
-      contract.witnesses.witness1.cpf,
-      contract.witnesses.witness2.name,
-      contract.witnesses.witness2.cpf
-    ];
+      ) VALUES (
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+      )
+    `);
 
     try {
-      const result = await this.db.execute(query, values);
+      const result = stmt.run(
+        contract.buildingName,
+        contract.apartmentNumber,
+        contract.seller.name,
+        contract.seller.nationality,
+        contract.seller.maritalStatus,
+        contract.seller.address,
+        contract.seller.document,
+        contract.buyer.name,
+        contract.buyer.nationality,
+        contract.buyer.maritalStatus,
+        contract.buyer.address,
+        contract.buyer.document,
+        contract.bank.name,
+        contract.bank.address,
+        contract.bank.cnpj,
+        contract.property.address,
+        contract.property.registryNumber,
+        contract.property.area,
+        contract.property.parkingSpaces,
+        contract.property.privateArea,
+        contract.property.commonArea,
+        contract.property.totalArea,
+        contract.property.idealFraction,
+        contract.payment.totalPrice,
+        contract.payment.downPayment,
+        contract.payment.fgtsValue,
+        contract.payment.installments,
+        contract.date,
+        contract.witnesses.witness1.name,
+        contract.witnesses.witness1.cpf,
+        contract.witnesses.witness2.name,
+        contract.witnesses.witness2.cpf
+      );
+      
       console.log("Contract saved successfully:", result);
       return result;
     } catch (error) {
