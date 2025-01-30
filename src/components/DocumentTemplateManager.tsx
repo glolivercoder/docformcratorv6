@@ -10,15 +10,6 @@ import { analyzeDocument, processImage, ExtractedFields } from "@/utils/document
 import { processDocumentWithGemini } from "@/utils/documentGeminiAnalysis";
 import { databaseService, Template } from "@/utils/database";
 
-interface Template {
-  id: string;
-  name: string;
-  type: string;
-  fields: string[];
-  content: string;
-  createdAt: Date;
-}
-
 const mockTemplates: Template[] = [
   {
     id: "1",
@@ -42,13 +33,15 @@ export const DocumentTemplateManager = () => {
   const [templates, setTemplates] = useState<Template[]>(mockTemplates);
   const { toast } = useToast();
 
+  // ... keep existing code (handleFileUpload function start)
+
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     try {
       let text = "";
-      let extractedFields = {};
+      let extractedFields: ExtractedFields;
       
       if (file.type === "application/pdf") {
         const arrayBuffer = await file.arrayBuffer();

@@ -1,7 +1,7 @@
 import { pipeline } from "@huggingface/transformers";
 import Tesseract from 'tesseract.js';
 
-interface ExtractedFields {
+export interface ExtractedFields {
   nome?: string;
   cpf?: string;
   rg?: string;
@@ -10,6 +10,8 @@ interface ExtractedFields {
   estado?: string;
   cidade?: string;
   orgaoEmissor?: string;
+  fields: string[];
+  standardizedContent: string;
 }
 
 interface ZeroShotResult {
@@ -42,7 +44,10 @@ export const analyzeDocument = async (text: string): Promise<ExtractedFields> =>
 
     // Analyze each line of the document
     const lines = text.split('\n');
-    const extractedFields: ExtractedFields = {};
+    const extractedFields: ExtractedFields = {
+      fields: [],
+      standardizedContent: ""
+    };
 
     for (const line of lines) {
       if (!line.trim()) continue;
@@ -110,8 +115,3 @@ export const processImage = async (file: File): Promise<ExtractedFields> => {
     throw error;
   }
 };
-
-export interface ExtractedFields {
-  fields: string[];
-  standardizedContent: string;
-}
