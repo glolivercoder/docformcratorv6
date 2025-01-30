@@ -110,3 +110,8 @@ export const processImage = async (file: File): Promise<ExtractedFields> => {
     throw error;
   }
 };
+
+export interface ExtractedFields {
+  fields: string[];
+  standardizedContent: string;
+}

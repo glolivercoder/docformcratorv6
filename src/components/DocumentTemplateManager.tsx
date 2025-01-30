@@ -6,9 +6,9 @@ import { useToast } from "@/components/ui/use-toast";
 import { FileUp, Trash2, Edit2, Plus, Download } from "lucide-react";
 import mammoth from "mammoth";
 import * as pdfjsLib from 'pdfjs-dist';
-import { analyzeDocument, processImage } from "@/utils/documentAnalysis";
+import { analyzeDocument, processImage, ExtractedFields } from "@/utils/documentAnalysis";
 import { processDocumentWithGemini } from "@/utils/documentGeminiAnalysis";
-import { databaseService } from "@/utils/database";
+import { databaseService, Template } from "@/utils/database";
 
 interface Template {
   id: string;
