@@ -13,19 +13,21 @@ import { documentTypes, formatarDataPorExtenso } from "@/utils/documentTypes";
 
 interface DocumentFormProps {
   documentType: DocumentType;
+  onFormDataChange?: (data: Record<string, any>) => void;
 }
 
-export const DocumentForm = ({ documentType }: DocumentFormProps) => {
-  const [formData, setFormData] = useState<any>({}); // Using any temporarily, should be properly typed
+export const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => {
+  const [formData, setFormData] = useState<any>({});
   const { toast } = useToast();
   const [useSystemDate, setUseSystemDate] = useState(false);
 
   useEffect(() => {
-    // Initialize form data based on document type
     const docType = documentType === DocumentType.LEASE_CONTRACT ? 'contratoLocacao' 
                   : documentType === DocumentType.SALE_CONTRACT ? 'contratoVenda'
                   : 'recibo';
-    setFormData(documentTypes[docType].fields);
+    const initialData = documentTypes[docType].fields;
+    setFormData(initialData);
+    onFormDataChange?.(initialData);
   }, [documentType]);
 
   useEffect(() => {
@@ -37,19 +39,19 @@ export const DocumentForm = ({ documentType }: DocumentFormProps) => {
 
   const handleInputChange = (field: string, value: any, parent: string | null = null) => {
     setFormData(prev => {
-      if (parent) {
-        return {
-          ...prev,
-          [parent]: {
-            ...prev[parent],
-            [field]: value
-          }
-        };
-      }
-      return {
+      const newData = parent ? {
+        ...prev,
+        [parent]: {
+          ...prev[parent],
+          [field]: value
+        }
+      } : {
         ...prev,
         [field]: value
       };
+      
+      onFormDataChange?.(newData);
+      return newData;
     });
     console.log("Form data updated:", { field, value, parent });
   };
