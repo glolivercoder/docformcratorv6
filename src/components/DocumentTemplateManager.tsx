@@ -6,7 +6,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { FileUp, Trash2, Edit2, Plus, Download } from "lucide-react";
 import mammoth from "mammoth";
 import * as pdfjsLib from 'pdfjs-dist';
-import { analyzeDocument, processImage, ExtractedFields } from "@/utils/documentAnalysis";
+import { analyzeDocument, processImage } from "@/utils/documentAnalysis";
 import { processDocumentWithGemini } from "@/utils/documentGeminiAnalysis";
 import { databaseService, Template } from "@/utils/database";
 
@@ -39,7 +39,6 @@ export const DocumentTemplateManager = () => {
 
     try {
       let text = "";
-      let extractedFields: ExtractedFields;
       
       if (file.type === "application/pdf") {
         const arrayBuffer = await file.arrayBuffer();
@@ -53,7 +52,7 @@ export const DocumentTemplateManager = () => {
         text = result.value;
       } else if (file.type.includes("image")) {
         const imageText = await processImage(file);
-        text = imageText;
+        text = imageText.standardizedContent; // Use standardizedContent from ExtractedFields
       } else {
         text = await file.text();
       }
