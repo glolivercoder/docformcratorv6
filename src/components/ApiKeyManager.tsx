@@ -98,7 +98,6 @@ export const ApiKeyManager = () => {
 
   return (
     <Card className="p-4">
-      <h3 className="text-lg font-semibold mb-4">Configurar Chaves API</h3>
       <div className="space-y-4">
         <Select
           value={selectedProvider}
@@ -145,7 +144,7 @@ export const ApiKeyManager = () => {
         />
 
         <Button onClick={handleSaveKey} className="w-full">
-          Salvar Chave API
+          Configurar chave API
         </Button>
 
         <div className="text-sm text-gray-500">
