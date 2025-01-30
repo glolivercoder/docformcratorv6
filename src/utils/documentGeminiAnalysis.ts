@@ -4,9 +4,14 @@ export const processDocumentWithGemini = async (text: string) => {
   try {
     const apiKey = localStorage.getItem("geminiApiKey");
     if (!apiKey) {
-      throw new Error("API key not found");
+      throw new Error("Gemini API key not found. Please configure your API key first.");
     }
 
+    if (!apiKey.startsWith('AI')) {
+      throw new Error("Invalid Gemini API key format. The key should start with 'AI'.");
+    }
+
+    console.log("Initializing Gemini with API key");
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
@@ -23,11 +28,12 @@ export const processDocumentWithGemini = async (text: string) => {
     - fields: array of standardized field names
     - standardizedContent: the document text with standardized fields`;
 
+    console.log("Sending request to Gemini API");
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const analysisText = response.text();
     
-    console.log("Gemini analysis result:", analysisText);
+    console.log("Received response from Gemini:", analysisText);
     
     try {
       return JSON.parse(analysisText);

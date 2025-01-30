@@ -26,12 +26,12 @@ export const ApiKeyManager = () => {
       return;
     }
 
-    // Basic validation for Gemini API key format
-    if (!apiKey.startsWith('AI') || apiKey.length < 10) {
+    // Validate Gemini API key format
+    if (!apiKey.startsWith('AI')) {
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "A chave API parece inválida. Verifique o formato da chave do Gemini.",
+        description: "A chave API do Gemini deve começar com 'AI'. Verifique se você copiou a chave corretamente.",
       });
       return;
     }
@@ -39,7 +39,7 @@ export const ApiKeyManager = () => {
     localStorage.setItem("geminiApiKey", apiKey);
     toast({
       title: "Sucesso",
-      description: "Chave API salva com sucesso!",
+      description: "Chave API salva com sucesso! Você já pode usar os recursos do Gemini.",
     });
   };
 
@@ -55,7 +55,7 @@ export const ApiKeyManager = () => {
             </a></li>
             <li>Faça login com sua conta Google</li>
             <li>Clique em "Create API Key"</li>
-            <li>Copie a chave gerada e cole abaixo</li>
+            <li>Copie a chave gerada (deve começar com 'AI')</li>
           </ol>
         </div>
         <Input
@@ -64,7 +64,9 @@ export const ApiKeyManager = () => {
           onChange={(e) => setApiKey(e.target.value)}
           placeholder="Digite sua chave API do Gemini (começa com 'AI')"
         />
-        <Button onClick={handleSaveKey}>Salvar Chave API</Button>
+        <Button onClick={handleSaveKey} className="w-full">
+          Salvar Chave API
+        </Button>
       </div>
     </Card>
   );
