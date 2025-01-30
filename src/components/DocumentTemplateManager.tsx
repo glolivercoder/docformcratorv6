@@ -12,7 +12,7 @@ import { databaseService, Template } from "@/utils/database";
 
 const mockTemplates: Template[] = [
   {
-    id: "1",
+    id: 1,
     name: "Contrato de Locação",
     type: "pdf",
     fields: ["[nome_cliente]", "[cpf]", "[endereco]"],
@@ -20,7 +20,7 @@ const mockTemplates: Template[] = [
     createdAt: new Date(),
   },
   {
-    id: "2",
+    id: 2,
     name: "Procuração",
     type: "docx",
     fields: ["[outorgante]", "[outorgado]", "[finalidade]"],
@@ -32,8 +32,6 @@ const mockTemplates: Template[] = [
 export const DocumentTemplateManager = () => {
   const [templates, setTemplates] = useState<Template[]>(mockTemplates);
   const { toast } = useToast();
-
-  // ... keep existing code (handleFileUpload function start)
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -74,7 +72,7 @@ export const DocumentTemplateManager = () => {
       });
 
       const newTemplate: Template = {
-        id: templateId.toString(),
+        id: templateId,
         name: file.name,
         type: file.type,
         fields: analysis.fields,
@@ -124,9 +122,9 @@ export const DocumentTemplateManager = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: number) => {
     try {
-      await databaseService.deleteTemplate(id);
+      await databaseService.deleteTemplate(id.toString());
       setTemplates((prev) => prev.filter((template) => template.id !== id));
       toast({
         title: "Modelo excluído",
@@ -142,7 +140,7 @@ export const DocumentTemplateManager = () => {
     }
   };
 
-  const handleEdit = (id: string) => {
+  const handleEdit = (id: number) => {
     console.log("Editing template:", id);
     toast({
       title: "Edição de modelo",
