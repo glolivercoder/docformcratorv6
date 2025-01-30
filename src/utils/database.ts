@@ -1,74 +1,31 @@
 import Dexie, { Table } from 'dexie';
 import { toast } from "@/components/ui/use-toast";
 
-export interface RealEstateContract {
+export interface Template {
   id?: number;
-  buildingName: string;
-  apartmentNumber: string;
-  seller: {
-    name: string;
-    nationality: string;
-    maritalStatus: string;
-    address: string;
-    document: string;
-  };
-  buyer: {
-    name: string;
-    nationality: string;
-    maritalStatus: string;
-    address: string;
-    document: string;
-  };
-  bank: {
-    name: string;
-    address: string;
-    cnpj: string;
-  };
-  property: {
-    address: string;
-    registryNumber: string;
-    area: number;
-    parkingSpaces: number;
-    privateArea: number;
-    commonArea: number;
-    totalArea: number;
-    idealFraction: string;
-  };
-  payment: {
-    totalPrice: number;
-    downPayment: number;
-    fgtsValue: number;
-    installments: number;
-  };
-  date: string;
-  witnesses: {
-    witness1: {
-      name: string;
-      cpf: string;
-    };
-    witness2: {
-      name: string;
-      cpf: string;
-    };
-  };
+  name: string;
+  type: string;
+  fields: string[];
+  content: string;
+  createdAt: Date;
 }
 
-class RealEstateDatabase extends Dexie {
-  contracts!: Table<RealEstateContract>;
+class DocumentDatabase extends Dexie {
+  templates!: Table<Template>;
 
   constructor() {
-    super('RealEstateDB');
+    super('DocumentDB');
     this.version(1).stores({
-      contracts: '++id, buildingName, apartmentNumber, date'
+      templates: '++id, name, type, createdAt'
     });
   }
 }
 
 class DatabaseService {
-  private db: RealEstateDatabase;
+  private db: DocumentDatabase;
 
   constructor() {
-    this.db = new RealEstateDatabase();
+    this.db = new DocumentDatabase();
     console.log("Database service initialized");
   }
 
@@ -92,23 +49,27 @@ class DatabaseService {
     }
   }
 
-  async saveContract(contract: RealEstateContract) {
+  async saveTemplate(template: Omit<Template, 'id'>) {
     try {
-      const id = await this.db.contracts.add(contract);
-      console.log("Contract saved successfully with id:", id);
+      const id = await this.db.templates.add(template);
+      console.log("Template saved successfully with id:", id);
       return id;
     } catch (error) {
-      console.error("Error saving contract:", error);
+      console.error("Error saving template:", error);
       throw error;
     }
   }
 
-  async getContract(id: number) {
-    return await this.db.contracts.get(id);
+  async getTemplate(id: number) {
+    return await this.db.templates.get(id);
   }
 
-  async getAllContracts() {
-    return await this.db.contracts.toArray();
+  async getAllTemplates() {
+    return await this.db.templates.toArray();
+  }
+
+  async deleteTemplate(id: string) {
+    return await this.db.templates.delete(Number(id));
   }
 }
 

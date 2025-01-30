@@ -3,19 +3,19 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
-import { FileUp, Trash2, Edit2, Plus } from "lucide-react";
+import { FileUp, Trash2, Edit2, Plus, Download } from "lucide-react";
 import mammoth from "mammoth";
 import * as pdfjsLib from 'pdfjs-dist';
 import { analyzeDocument, processImage } from "@/utils/documentAnalysis";
-
-// Initialize PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+import { processDocumentWithGemini } from "@/utils/documentGeminiAnalysis";
+import { databaseService } from "@/utils/database";
 
 interface Template {
   id: string;
   name: string;
   type: string;
   fields: string[];
+  content: string;
   createdAt: Date;
 }
 
@@ -24,14 +24,16 @@ const mockTemplates: Template[] = [
     id: "1",
     name: "Contrato de Locação",
     type: "pdf",
-    fields: ["nome", "cpf", "endereco"],
+    fields: ["[nome_cliente]", "[cpf]", "[endereco]"],
+    content: "",
     createdAt: new Date(),
   },
   {
     id: "2",
     name: "Procuração",
     type: "docx",
-    fields: ["outorgante", "outorgado", "finalidade"],
+    fields: ["[outorgante]", "[outorgado]", "[finalidade]"],
+    content: "",
     createdAt: new Date(),
   },
 ];
@@ -54,57 +56,100 @@ export const DocumentTemplateManager = () => {
         const page = await pdf.getPage(1);
         const textContent = await page.getTextContent();
         text = textContent.items.map((item: any) => item.str).join(' ');
-        extractedFields = await analyzeDocument(text);
       } else if (file.type.includes("word")) {
         const arrayBuffer = await file.arrayBuffer();
         const result = await mammoth.extractRawText({ arrayBuffer });
         text = result.value;
-        extractedFields = await analyzeDocument(text);
       } else if (file.type.includes("image")) {
-        extractedFields = await processImage(file);
-        text = "Image document";
+        const imageText = await processImage(file);
+        text = imageText;
       } else {
         text = await file.text();
-        extractedFields = await analyzeDocument(text);
       }
 
-      console.log("Document text extracted:", text);
-      console.log("Fields extracted:", extractedFields);
-      
-      const newTemplate: Template = {
-        id: Date.now().toString(),
+      // Analyze with Gemini
+      const analysis = await processDocumentWithGemini(text);
+      console.log("Gemini Analysis:", analysis);
+
+      // Save to database
+      const templateId = await databaseService.saveTemplate({
         name: file.name,
         type: file.type,
-        fields: Object.keys(extractedFields),
+        fields: analysis.fields,
+        content: analysis.standardizedContent,
+        createdAt: new Date()
+      });
+
+      const newTemplate: Template = {
+        id: templateId.toString(),
+        name: file.name,
+        type: file.type,
+        fields: analysis.fields,
+        content: analysis.standardizedContent,
         createdAt: new Date(),
       };
 
       setTemplates((prev) => [...prev, newTemplate]);
       
       toast({
-        title: "Modelo adicionado com sucesso!",
-        description: "Os campos foram extraídos automaticamente.",
+        title: "Modelo processado com sucesso!",
+        description: "Os campos foram extraídos e padronizados automaticamente.",
       });
     } catch (error) {
       console.error("Error processing document:", error);
       toast({
         variant: "destructive",
         title: "Erro ao processar documento",
-        description: "Não foi possível extrair os campos do documento.",
+        description: "Não foi possível processar o documento.",
       });
     }
   };
 
-  const handleDelete = (id: string) => {
-    setTemplates((prev) => prev.filter((template) => template.id !== id));
-    toast({
-      title: "Modelo excluído",
-      description: "O modelo foi removido com sucesso.",
-    });
+  const handleExport = async (template: Template) => {
+    try {
+      const blob = new Blob([template.content], { type: 'text/plain' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${template.name}-template.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "Modelo exportado com sucesso!",
+        description: "O arquivo foi baixado para seu computador.",
+      });
+    } catch (error) {
+      console.error("Error exporting template:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro na exportação",
+        description: "Não foi possível exportar o modelo.",
+      });
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await databaseService.deleteTemplate(id);
+      setTemplates((prev) => prev.filter((template) => template.id !== id));
+      toast({
+        title: "Modelo excluído",
+        description: "O modelo foi removido com sucesso.",
+      });
+    } catch (error) {
+      console.error("Error deleting template:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao excluir",
+        description: "Não foi possível excluir o modelo.",
+      });
+    }
   };
 
   const handleEdit = (id: string) => {
-    // Would open an edit modal/form
     console.log("Editing template:", id);
     toast({
       title: "Edição de modelo",
@@ -145,6 +190,14 @@ export const DocumentTemplateManager = () => {
                 </p>
               </div>
               <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleExport(template)}
+                  title="Exportar modelo"
+                >
+                  <Download className="w-4 h-4" />
+                </Button>
                 <Button
                   variant="ghost"
                   size="icon"
