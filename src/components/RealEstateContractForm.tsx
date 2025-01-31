@@ -82,13 +82,24 @@ export const RealEstateContractForm = () => {
   });
 
   const handleInputChange = (section: string, field: string, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [section]: {
-        ...prev[section],
-        [field]: value
-      }
-    }));
+    if (field === "documentType" && (section === "seller" || section === "buyer")) {
+      // Ensure documentType is properly typed as DocumentType
+      setFormData(prev => ({
+        ...prev,
+        [section]: {
+          ...prev[section],
+          [field]: value as DocumentType
+        }
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [section]: {
+          ...prev[section],
+          [field]: value
+        }
+      }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
