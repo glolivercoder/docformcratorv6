@@ -99,6 +99,7 @@ export const RealEstateContractForm = () => {
         }
       }));
     }
+    console.log(`Updated ${section}.${field} with value:`, value);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -110,6 +111,7 @@ export const RealEstateContractForm = () => {
         title: "Sucesso",
         description: "Contrato salvo com sucesso!",
       });
+      console.log("Contract saved successfully:", formData);
     } catch (error) {
       console.error("Error saving contract:", error);
       toast({
