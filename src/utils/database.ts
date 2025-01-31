@@ -19,6 +19,16 @@ export interface RealEstateContract {
     maritalStatus: string;
     address: string;
     document: string;
+    documentType?: string;
+    documentFields?: Record<string, string>;
+    hasSpouse?: boolean;
+    spouse?: {
+      name: string;
+      nationality: string;
+      document: string;
+      documentType?: string;
+      documentFields?: Record<string, string>;
+    };
   };
   buyer: {
     name: string;
@@ -26,6 +36,16 @@ export interface RealEstateContract {
     maritalStatus: string;
     address: string;
     document: string;
+    documentType?: string;
+    documentFields?: Record<string, string>;
+    hasSpouse?: boolean;
+    spouse?: {
+      name: string;
+      nationality: string;
+      document: string;
+      documentType?: string;
+      documentFields?: Record<string, string>;
+    };
   };
   bank: {
     name: string;
