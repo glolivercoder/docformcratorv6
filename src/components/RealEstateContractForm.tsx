@@ -20,6 +20,15 @@ export const RealEstateContractForm = () => {
       address: "",
       document: "",
       documentType: "RG" as DocumentType,
+      documentFields: {},
+      hasSpouse: false,
+      spouse: {
+        name: "",
+        nationality: "",
+        document: "",
+        documentType: "RG" as DocumentType,
+        documentFields: {},
+      },
     },
     buyer: {
       name: "",
@@ -28,6 +37,15 @@ export const RealEstateContractForm = () => {
       address: "",
       document: "",
       documentType: "RG" as DocumentType,
+      documentFields: {},
+      hasSpouse: false,
+      spouse: {
+        name: "",
+        nationality: "",
+        document: "",
+        documentType: "RG" as DocumentType,
+        documentFields: {},
+      },
     },
     bank: {
       name: "",
