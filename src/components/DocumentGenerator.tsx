@@ -92,23 +92,54 @@ export const DocumentGenerator = () => {
       if (ocrMethod === 'gemini') {
         extractedData = await processImageWithGemini(file);
       } else {
+        // Melhorar o pré-processamento da imagem para o Tesseract
         const result = await Tesseract.recognize(file, 'por', {
-          logger: m => console.log(m)
+          logger: m => console.log('Tesseract progress:', m),
+          workerOptions: {
+            workerPath: 'https://unpkg.com/tesseract.js@v4.0.0/dist/worker.min.js',
+            langPath: 'https://tessdata.projectnaptha.com/4.0.0',
+            corePath: 'https://unpkg.com/tesseract.js-core@v4.0.0/tesseract-core.wasm.js',
+          },
+          // Configurações para melhorar a precisão
+          tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,/-():;@ ',
+          tessedit_pageseg_mode: '1',
+          preserve_interword_spaces: '1',
         });
 
-        console.log("OCR Result:", result.data.text);
+        console.log("Raw OCR Result:", result.data.text);
+        
+        // Melhorar a extração de dados com expressões regulares mais precisas
+        const cleanText = result.data.text.replace(/\s+/g, ' ').trim();
+        console.log("Cleaned text:", cleanText);
 
         extractedData = {
-          nomeCompleto: result.data.text.match(/nome:?\s*([^\n]+)/i)?.[1],
-          cpf: result.data.text.match(/\d{3}\.?\d{3}\.?\d{3}-?\d{2}/)?.[0],
-          rg: result.data.text.match(/\d{1,2}\.?\d{3}\.?\d{3}-?\d{1}/)?.[0],
-          orgaoExpedidor: result.data.text.match(/emissor:?\s*([^\n]+)/i)?.[1],
-          filiacao: result.data.text.match(/filia[çc][aã]o:?\s*([^\n]+)/i)?.[1],
-          dataEmissao: result.data.text.match(/emiss[aã]o:?\s*([^\n]+)/i)?.[1],
+          nomeCompleto: cleanText.match(/nome:?\s*([^:\n]+?)(?:\s*cpf|\s*rg|\s*$)/i)?.[1]?.trim(),
+          cpf: cleanText.match(/cpf:?\s*(\d{3}\.?\d{3}\.?\d{3}-?\d{2})/i)?.[1]?.trim(),
+          rg: cleanText.match(/rg:?\s*(\d{1,2}\.?\d{3}\.?\d{3}(?:-|\/|\s+)?\d{1})/i)?.[1]?.trim(),
+          orgaoExpedidor: cleanText.match(/(?:orgao|órgão)\s*emissor:?\s*([^:\n]+?)(?:\s*cpf|\s*rg|\s*$)/i)?.[1]?.trim(),
+          filiacao: cleanText.match(/filia[çc][aã]o:?\s*([^:\n]+?)(?:\s*cpf|\s*rg|\s*$)/i)?.[1]?.trim(),
+          dataEmissao: cleanText.match(/(?:data\s+de\s+)?emiss[aã]o:?\s*(\d{2}\/\d{2}\/\d{4}|\d{2}\.\d{2}\.\d{4})/i)?.[1]?.trim(),
         };
+
+        // Log detalhado dos dados extraídos
+        console.log("Extracted data details:", {
+          rawText: result.data.text,
+          cleanedText: cleanText,
+          extractedFields: extractedData,
+        });
       }
 
-      console.log("Extracted data:", extractedData);
+      if (!extractedData || Object.values(extractedData).every(v => !v)) {
+        console.error("No data could be extracted from the image");
+        toast({
+          variant: "destructive",
+          title: "Erro na extração",
+          description: "Não foi possível extrair dados da imagem. Tente tirar uma foto com melhor iluminação e foco.",
+        });
+        return;
+      }
+
+      console.log("Final extracted data:", extractedData);
       setOCRData(extractedData);
       setShowOCRDialog(true);
       
@@ -121,7 +152,7 @@ export const DocumentGenerator = () => {
       toast({
         variant: "destructive",
         title: "Erro no processamento",
-        description: "Não foi possível extrair os dados do documento.",
+        description: "Não foi possível extrair os dados do documento. Tente novamente com uma imagem mais clara.",
       });
     }
   };
