@@ -6,6 +6,7 @@ import { SellerForm } from "./contract/SellerForm";
 import { BuyerForm } from "./contract/BuyerForm";
 import { BankForm } from "./contract/BankForm";
 import { databaseService } from "@/utils/database";
+import { DocumentType } from "./contract/DocumentTypeSelect";
 
 export const RealEstateContractForm = () => {
   const { toast } = useToast();
@@ -18,6 +19,7 @@ export const RealEstateContractForm = () => {
       maritalStatus: "",
       address: "",
       document: "",
+      documentType: "RG" as DocumentType,
     },
     buyer: {
       name: "",
@@ -25,6 +27,7 @@ export const RealEstateContractForm = () => {
       maritalStatus: "",
       address: "",
       document: "",
+      documentType: "RG" as DocumentType,
     },
     bank: {
       name: "",
