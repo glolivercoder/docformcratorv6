@@ -1,10 +1,21 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -29,6 +40,9 @@ export const OCRSelectionDialog = ({
   formData,
   onSelection,
 }: OCRSelectionDialogProps) => {
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [showSideBySide, setShowSideBySide] = useState(false);
+
   const expectedFields = [
     "nomeCompleto",
     "rg",
@@ -37,6 +51,51 @@ export const OCRSelectionDialog = ({
     "filiacao",
     "dataEmissao"
   ];
+
+  const checkFieldsCompletion = () => {
+    const hasAllFields = expectedFields.every(field => ocrData[field]);
+    setShowConfirmation(true);
+    if (!hasAllFields) {
+      setShowSideBySide(true);
+    }
+  };
+
+  const handleConfirm = (useFields: boolean) => {
+    setShowConfirmation(false);
+    if (useFields) {
+      expectedFields.forEach(field => {
+        if (ocrData[field]) {
+          onSelection(field, ocrData[field]);
+        }
+      });
+      onOpenChange(false);
+    } else {
+      setShowSideBySide(true);
+    }
+  };
+
+  if (showConfirmation) {
+    return (
+      <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmação dos Dados</AlertDialogTitle>
+            <AlertDialogDescription>
+              Os dados extraídos estão corretos e completos?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => handleConfirm(false)}>
+              Não, preciso revisar
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleConfirm(true)}>
+              Sim, usar dados
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -97,6 +156,11 @@ export const OCRSelectionDialog = ({
             </ScrollArea>
           </div>
         </div>
+        <DialogFooter>
+          <Button onClick={checkFieldsCompletion}>
+            Confirmar Seleção
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

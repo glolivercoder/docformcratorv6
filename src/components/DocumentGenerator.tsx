@@ -98,16 +98,13 @@ export const DocumentGenerator = () => {
 
         console.log("OCR Result:", result.data.text);
 
-        const cpfPattern = /\d{3}\.?\d{3}\.?\d{3}-?\d{2}/;
-        const rgPattern = /\d{1,2}\.?\d{3}\.?\d{3}-?\d{1}/;
-        const creciPattern = /CRECI.*?(\d+)/i;
-        const oabPattern = /OAB.*?(\d+)/i;
-
         extractedData = {
-          cpf: result.data.text.match(cpfPattern)?.[0],
-          rg: result.data.text.match(rgPattern)?.[0],
-          creci: result.data.text.match(creciPattern)?.[1],
-          oab: result.data.text.match(oabPattern)?.[1],
+          nomeCompleto: result.data.text.match(/nome:?\s*([^\n]+)/i)?.[1],
+          cpf: result.data.text.match(/\d{3}\.?\d{3}\.?\d{3}-?\d{2}/)?.[0],
+          rg: result.data.text.match(/\d{1,2}\.?\d{3}\.?\d{3}-?\d{1}/)?.[0],
+          orgaoExpedidor: result.data.text.match(/emissor:?\s*([^\n]+)/i)?.[1],
+          filiacao: result.data.text.match(/filia[çc][aã]o:?\s*([^\n]+)/i)?.[1],
+          dataEmissao: result.data.text.match(/emiss[aã]o:?\s*([^\n]+)/i)?.[1],
         };
       }
 
@@ -117,7 +114,7 @@ export const DocumentGenerator = () => {
       
       toast({
         title: "Dados extraídos com sucesso!",
-        description: "Selecione os dados que deseja utilizar.",
+        description: "Por favor, confirme se os dados estão corretos.",
       });
     } catch (error) {
       console.error("OCR Error:", error);
@@ -130,7 +127,6 @@ export const DocumentGenerator = () => {
   };
 
   const handleOCRSelection = (field: string, value: string) => {
-    // This function will be implemented in DocumentForm to handle the selected data
     console.log("Selected OCR data:", { field, value });
   };
 

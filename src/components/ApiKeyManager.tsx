@@ -15,33 +15,57 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 const API_PROVIDERS = {
   gemini: {
     name: "Google Gemini",
-    models: ["gemini-pro", "gemini-pro-vision"],
+    models: [
+      "gemini-pro-vision",
+      "gemini-pro",
+      "gemini-ultra-vision",
+    ],
     keyPrefix: "AI",
     configUrl: "https://makersuite.google.com/app/apikey",
   },
   openai: {
     name: "OpenAI",
-    models: ["gpt-3.5-turbo", "gpt-4", "gpt-4-vision"],
+    models: [
+      "gpt-4-vision",
+      "dall-e-3",
+      "gpt-4-turbo-vision",
+      "gpt-4",
+    ],
     keyPrefix: "sk-",
     configUrl: "https://platform.openai.com/api-keys",
   },
   claude: {
     name: "Anthropic Claude",
-    models: ["claude-2", "claude-instant"],
+    models: [
+      "claude-3-opus",
+      "claude-3-sonnet",
+      "claude-3-haiku",
+      "claude-2.1",
+    ],
     keyPrefix: "sk-ant-",
     configUrl: "https://console.anthropic.com/account/keys",
   },
   openrouter: {
     name: "OpenRouter",
-    models: ["openrouter/auto", "anthropic/claude-2", "google/gemini-pro"],
+    models: [
+      "google/gemini-pro-vision",
+      "anthropic/claude-3-opus",
+      "openai/gpt-4-vision",
+      "mistral/mistral-large",
+    ],
     keyPrefix: "sk-or-",
     configUrl: "https://openrouter.ai/keys",
   },
-  deepseek: {
-    name: "DeepSeek",
-    models: ["deepseek-coder", "deepseek-chat"],
+  stability: {
+    name: "Stability AI",
+    models: [
+      "stable-diffusion-xl",
+      "stable-diffusion-3",
+      "image-to-text",
+      "upscale-xl",
+    ],
     keyPrefix: "sk-",
-    configUrl: "https://platform.deepseek.com/api-keys",
+    configUrl: "https://platform.stability.ai/",
   },
 };
 
