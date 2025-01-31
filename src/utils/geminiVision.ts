@@ -9,8 +9,7 @@ export const processImageWithGemini = async (imageFile: File) => {
       throw new Error("Please configure your Gemini API key in the settings first.");
     }
 
-    // Validate API key format (basic check)
-    if (!apiKey.startsWith('AI') || apiKey.length < 10) {
+    if (!apiKey.startsWith('AI')) {
       throw new Error("The provided API key appears to be invalid. Please check your Gemini API key format.");
     }
 
@@ -26,8 +25,8 @@ export const processImageWithGemini = async (imageFile: File) => {
     // Remove data URL prefix
     const base64Data = base64Image.split(',')[1];
 
-    // Initialize Gemini Pro Vision model
-    const model = genAI.getGenerativeModel({ model: "gemini-pro-vision" });
+    // Initialize Gemini 1.5 Flash model instead of pro-vision
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const prompt = `Extract the following information from this document image if present:
     - Full Name
@@ -54,7 +53,6 @@ export const processImageWithGemini = async (imageFile: File) => {
     
     console.log("Gemini extraction result:", text);
 
-    // Try to parse the response as JSON
     try {
       return JSON.parse(text);
     } catch (e) {

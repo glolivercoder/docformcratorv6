@@ -94,15 +94,14 @@ export const DocumentGenerator = () => {
       } else {
         const result = await Tesseract.recognize(file, 'por', {
           logger: m => console.log('Tesseract progress:', m),
-          // Configurações para melhorar a precisão
-          tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,/-():;@ ',
-          tessedit_pageseg_mode: '1',
-          preserve_interword_spaces: '1',
+          langPath: 'https://tessdata.projectnaptha.com/4.0.0',
+          errorHandler: (err: any) => {
+            console.error('Tesseract error:', err);
+          }
         });
 
         console.log("Raw OCR Result:", result.data.text);
         
-        // Melhorar a extração de dados com expressões regulares mais precisas
         const cleanText = result.data.text.replace(/\s+/g, ' ').trim();
         console.log("Cleaned text:", cleanText);
 
@@ -114,13 +113,6 @@ export const DocumentGenerator = () => {
           filiacao: cleanText.match(/filia[çc][aã]o:?\s*([^:\n]+?)(?:\s*cpf|\s*rg|\s*$)/i)?.[1]?.trim(),
           dataEmissao: cleanText.match(/(?:data\s+de\s+)?emiss[aã]o:?\s*(\d{2}\/\d{2}\/\d{4}|\d{2}\.\d{2}\.\d{4})/i)?.[1]?.trim(),
         };
-
-        // Log detalhado dos dados extraídos
-        console.log("Extracted data details:", {
-          rawText: result.data.text,
-          cleanedText: cleanText,
-          extractedFields: extractedData,
-        });
       }
 
       if (!extractedData || Object.values(extractedData).every(v => !v)) {
