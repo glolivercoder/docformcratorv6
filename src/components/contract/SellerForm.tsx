@@ -84,7 +84,7 @@ export const SellerForm = ({ seller, onChange }: SellerFormProps) => {
         
         <div className="col-span-2">
           <DocumentTypeSelect
-            value={seller.documentType || "RG"}
+            value={seller.documentType || DocumentType.RG}
             onChange={(value) => onChange("documentType", value)}
             onFieldChange={handleDocumentFieldsChange}
             fields={seller.documentFields || {}}
@@ -124,7 +124,7 @@ export const SellerForm = ({ seller, onChange }: SellerFormProps) => {
               </div>
               <div className="col-span-2">
                 <DocumentTypeSelect
-                  value={seller.spouse?.documentType || "RG"}
+                  value={seller.spouse?.documentType || DocumentType.RG}
                   onChange={(value) => handleSpouseChange("documentType", value)}
                   onFieldChange={handleSpouseDocumentFieldsChange}
                   fields={seller.spouse?.documentFields || {}}
