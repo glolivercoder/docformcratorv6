@@ -92,14 +92,8 @@ export const DocumentGenerator = () => {
       if (ocrMethod === 'gemini') {
         extractedData = await processImageWithGemini(file);
       } else {
-        // Melhorar o pré-processamento da imagem para o Tesseract
         const result = await Tesseract.recognize(file, 'por', {
           logger: m => console.log('Tesseract progress:', m),
-          workerOptions: {
-            workerPath: 'https://unpkg.com/tesseract.js@v4.0.0/dist/worker.min.js',
-            langPath: 'https://tessdata.projectnaptha.com/4.0.0',
-            corePath: 'https://unpkg.com/tesseract.js-core@v4.0.0/tesseract-core.wasm.js',
-          },
           // Configurações para melhorar a precisão
           tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,/-():;@ ',
           tessedit_pageseg_mode: '1',
