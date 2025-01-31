@@ -82,14 +82,15 @@ export const RealEstateContractForm = () => {
   });
 
   const handleInputChange = (section: string, field: string, value: any) => {
-    if (field === "documentType" && (section === "seller" || section === "buyer")) {
+    if (field === "documentType") {
       setFormData(prev => ({
         ...prev,
         [section]: {
           ...prev[section],
-          [field]: value as DocumentType
+          documentType: value as DocumentType
         }
       }));
+      console.log(`Updated ${section}.${field} with DocumentType:`, value);
     } else {
       setFormData(prev => ({
         ...prev,
@@ -98,8 +99,8 @@ export const RealEstateContractForm = () => {
           [field]: value
         }
       }));
+      console.log(`Updated ${section}.${field} with value:`, value);
     }
-    console.log(`Updated ${section}.${field} with value:`, value);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
