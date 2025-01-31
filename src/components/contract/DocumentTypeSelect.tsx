@@ -4,7 +4,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export type DocumentType = "RG" | "OAB" | "CRECI" | "CNH";
+export enum DocumentType {
+  RG = "RG",
+  OAB = "OAB",
+  CRECI = "CRECI",
+  CNH = "CNH"
+}
 
 interface DocumentTypeSelectProps {
   value: DocumentType;
@@ -16,7 +21,7 @@ interface DocumentTypeSelectProps {
 export const DocumentTypeSelect = ({ value, onChange, onFieldChange, fields }: DocumentTypeSelectProps) => {
   const renderFields = () => {
     switch (value) {
-      case "RG":
+      case DocumentType.RG:
         return (
           <>
             <div className="space-y-2">
@@ -61,7 +66,7 @@ export const DocumentTypeSelect = ({ value, onChange, onFieldChange, fields }: D
             </div>
           </>
         );
-      case "CRECI":
+      case DocumentType.CRECI:
         return (
           <div className="space-y-2">
             <Label htmlFor="creciNumber">Número do CRECI</Label>
@@ -72,7 +77,7 @@ export const DocumentTypeSelect = ({ value, onChange, onFieldChange, fields }: D
             />
           </div>
         );
-      case "OAB":
+      case DocumentType.OAB:
         return (
           <div className="space-y-2">
             <Label htmlFor="oabNumber">Número da OAB</Label>
@@ -83,7 +88,7 @@ export const DocumentTypeSelect = ({ value, onChange, onFieldChange, fields }: D
             />
           </div>
         );
-      case "CNH":
+      case DocumentType.CNH:
         return (
           <>
             <div className="space-y-2">
@@ -111,16 +116,16 @@ export const DocumentTypeSelect = ({ value, onChange, onFieldChange, fields }: D
     <div className="space-y-4">
       <div className="space-y-2">
         <Label>Tipo de Documento</Label>
-        <Select value={value} onValueChange={onChange as any}>
+        <Select value={value} onValueChange={onChange}>
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <ScrollArea className="h-32">
-              <SelectItem value="RG">RG</SelectItem>
-              <SelectItem value="OAB">OAB</SelectItem>
-              <SelectItem value="CRECI">CRECI</SelectItem>
-              <SelectItem value="CNH">CNH</SelectItem>
+              <SelectItem value={DocumentType.RG}>RG</SelectItem>
+              <SelectItem value={DocumentType.OAB}>OAB</SelectItem>
+              <SelectItem value={DocumentType.CRECI}>CRECI</SelectItem>
+              <SelectItem value={DocumentType.CNH}>CNH</SelectItem>
             </ScrollArea>
           </SelectContent>
         </Select>
