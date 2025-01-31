@@ -1,15 +1,21 @@
 import React, { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { DocumentType } from "@/types/documents";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import { FileDown, Image, Printer } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { documentTypes, formatarDataPorExtenso } from "@/utils/documentTypes";
+import { DocumentSection } from "./form/DocumentSection";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 interface DocumentFormProps {
   documentType: DocumentType;
@@ -109,53 +115,25 @@ export const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormPro
     }
   };
 
-  const renderField = (fieldName: string, value: any, parent: string | null = null) => {
-    if (fieldName === 'usarDataSistema') {
+  const renderAccordionSections = () => {
+    return Object.entries(formData).map(([section, data]: [string, any]) => {
+      if (typeof data !== 'object' || Array.isArray(data)) return null;
+
       return (
-        <div key={`${parent}-${fieldName}`} className="flex items-center space-x-2 mb-4">
-          <Checkbox
-            id={`${parent}-${fieldName}`}
-            checked={useSystemDate}
-            onCheckedChange={(checked: boolean) => {
-              setUseSystemDate(checked);
-              handleInputChange(fieldName, checked, parent);
-            }}
-          />
-          <Label htmlFor={`${parent}-${fieldName}`}>
-            Usar data atual do sistema
-          </Label>
-        </div>
+        <AccordionItem value={section} key={section}>
+          <AccordionTrigger className="text-lg font-semibold">
+            {section.charAt(0).toUpperCase() + section.slice(1)}
+          </AccordionTrigger>
+          <AccordionContent>
+            <DocumentSection
+              fields={data}
+              parent={section}
+              onInputChange={handleInputChange}
+              useSystemDate={useSystemDate}
+            />
+          </AccordionContent>
+        </AccordionItem>
       );
-    }
-
-    return (
-      <div key={`${parent}-${fieldName}`} className="mb-4">
-        <Label htmlFor={`${parent}-${fieldName}`}>
-          {fieldName.charAt(0).toUpperCase() + fieldName.slice(1)}
-        </Label>
-        <Input
-          id={`${parent}-${fieldName}`}
-          value={value}
-          onChange={(e) => handleInputChange(fieldName, e.target.value, parent)}
-          disabled={fieldName === 'dataPorExtenso' && useSystemDate}
-        />
-      </div>
-    );
-  };
-
-  const renderFields = (fields: any, parent: string | null = null) => {
-    return Object.entries(fields).map(([fieldName, value]) => {
-      if (typeof value === 'object' && !Array.isArray(value)) {
-        return (
-          <Card key={fieldName} className="p-4 mb-4">
-            <h3 className="text-lg font-semibold mb-4">
-              {fieldName.charAt(0).toUpperCase() + fieldName.slice(1)}
-            </h3>
-            {renderFields(value, fieldName)}
-          </Card>
-        );
-      }
-      return renderField(fieldName, value, parent);
     });
   };
 
@@ -163,7 +141,25 @@ export const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormPro
     <div className="space-y-4">
       <Card className="p-6">
         <h2 className="text-xl font-semibold mb-4">Formulário do Documento</h2>
-        {renderFields(formData)}
+        
+        <div className="flex items-center space-x-2 mb-4">
+          <Checkbox
+            id="useSystemDate"
+            checked={useSystemDate}
+            onCheckedChange={(checked: boolean) => {
+              setUseSystemDate(checked);
+              handleInputChange('usarDataSistema', checked, null);
+            }}
+          />
+          <Label htmlFor="useSystemDate">
+            Usar data atual do sistema
+          </Label>
+        </div>
+
+        <Accordion type="single" collapsible className="mb-4">
+          {renderAccordionSections()}
+        </Accordion>
+
         <div className="flex gap-2">
           <Button onClick={generatePDF} className="flex items-center gap-2">
             <FileDown className="w-4 h-4" />
@@ -193,11 +189,12 @@ export const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormPro
               : "Documento"}
           </h1>
           
-          {/* Document content will be rendered here based on formData */}
           <div className="space-y-4">
             {Object.entries(formData).map(([section, data]: [string, any]) => (
               <div key={section}>
-                <h2 className="text-xl font-semibold">{section.charAt(0).toUpperCase() + section.slice(1)}</h2>
+                <h2 className="text-xl font-semibold">
+                  {section.charAt(0).toUpperCase() + section.slice(1)}
+                </h2>
                 {Object.entries(data).map(([field, value]: [string, any]) => (
                   typeof value !== 'object' && (
                     <p key={field} className="mb-2">
