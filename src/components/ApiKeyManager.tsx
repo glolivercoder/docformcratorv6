@@ -2,8 +2,6 @@ import React, { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
-import { ExternalLink } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -11,89 +9,76 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useToast } from "@/components/ui/use-toast";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
-type AIProvider = {
-  id: string;
-  name: string;
-  keyPrefix: string;
-  storageKey: string;
-  docsUrl: string;
+const API_PROVIDERS = {
+  gemini: {
+    name: "Google Gemini",
+    models: ["gemini-pro", "gemini-pro-vision"],
+    keyPrefix: "AI",
+    configUrl: "https://makersuite.google.com/app/apikey",
+  },
+  openai: {
+    name: "OpenAI",
+    models: ["gpt-3.5-turbo", "gpt-4", "gpt-4-vision"],
+    keyPrefix: "sk-",
+    configUrl: "https://platform.openai.com/api-keys",
+  },
+  claude: {
+    name: "Anthropic Claude",
+    models: ["claude-2", "claude-instant"],
+    keyPrefix: "sk-ant-",
+    configUrl: "https://console.anthropic.com/account/keys",
+  },
+  openrouter: {
+    name: "OpenRouter",
+    models: ["openrouter/auto", "anthropic/claude-2", "google/gemini-pro"],
+    keyPrefix: "sk-or-",
+    configUrl: "https://openrouter.ai/keys",
+  },
+  deepseek: {
+    name: "DeepSeek",
+    models: ["deepseek-coder", "deepseek-chat"],
+    keyPrefix: "sk-",
+    configUrl: "https://platform.deepseek.com/api-keys",
+  },
 };
 
-const AI_PROVIDERS: AIProvider[] = [
-  {
-    id: "gemini",
-    name: "Google Gemini",
-    keyPrefix: "AI",
-    storageKey: "geminiApiKey",
-    docsUrl: "https://makersuite.google.com/app/apikey",
-  },
-  {
-    id: "openai",
-    name: "OpenAI",
-    keyPrefix: "sk-",
-    storageKey: "openaiApiKey",
-    docsUrl: "https://platform.openai.com/api-keys",
-  },
-  {
-    id: "claude",
-    name: "Anthropic Claude",
-    keyPrefix: "sk-ant-",
-    storageKey: "claudeApiKey",
-    docsUrl: "https://console.anthropic.com/account/keys",
-  },
-  {
-    id: "openrouter",
-    name: "OpenRouter",
-    keyPrefix: "sk-or-",
-    storageKey: "openrouterApiKey",
-    docsUrl: "https://openrouter.ai/keys",
-  },
-  {
-    id: "deepseek",
-    name: "DeepSeek",
-    keyPrefix: "sk-",
-    storageKey: "deepseekApiKey",
-    docsUrl: "https://platform.deepseek.com/api-keys",
-  },
-];
-
 export const ApiKeyManager = () => {
-  const [selectedProvider, setSelectedProvider] = useState<string>("gemini");
-  const [apiKey, setApiKey] = useState("");
   const { toast } = useToast();
-
-  const currentProvider = AI_PROVIDERS.find((p) => p.id === selectedProvider)!;
+  const [selectedProvider, setSelectedProvider] = useState("gemini");
+  const [selectedModel, setSelectedModel] = useState("");
+  const [apiKey, setApiKey] = useState("");
 
   useEffect(() => {
-    const storedKey = localStorage.getItem(currentProvider.storageKey);
-    setApiKey(storedKey || "");
+    const provider = API_PROVIDERS[selectedProvider as keyof typeof API_PROVIDERS];
+    if (provider && provider.models.length > 0) {
+      setSelectedModel(provider.models[0]);
+    }
   }, [selectedProvider]);
 
   const handleSaveKey = () => {
-    if (!apiKey.trim()) {
+    const provider = API_PROVIDERS[selectedProvider as keyof typeof API_PROVIDERS];
+    
+    if (!apiKey.startsWith(provider.keyPrefix)) {
       toast({
         variant: "destructive",
-        title: "Erro",
-        description: "Por favor, insira uma chave API válida.",
+        title: "Chave API inválida",
+        description: `A chave deve começar com ${provider.keyPrefix}`,
       });
       return;
     }
 
-    if (!apiKey.startsWith(currentProvider.keyPrefix)) {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: `A chave API do ${currentProvider.name} deve começar com '${currentProvider.keyPrefix}'. Verifique se você copiou a chave corretamente.`,
-      });
-      return;
-    }
-
-    localStorage.setItem(currentProvider.storageKey, apiKey);
+    localStorage.setItem(`${selectedProvider}ApiKey`, apiKey);
+    localStorage.setItem(`${selectedProvider}Model`, selectedModel);
+    
     toast({
       title: "Sucesso",
-      description: `Chave API do ${currentProvider.name} salva com sucesso!`,
+      description: "Chave API salva com sucesso!",
     });
+    
+    setApiKey("");
   };
 
   return (
@@ -103,44 +88,43 @@ export const ApiKeyManager = () => {
           value={selectedProvider}
           onValueChange={setSelectedProvider}
         >
-          <SelectTrigger className="w-full">
+          <SelectTrigger>
             <SelectValue placeholder="Selecione o provedor" />
           </SelectTrigger>
           <SelectContent>
-            {AI_PROVIDERS.map((provider) => (
-              <SelectItem key={provider.id} value={provider.id}>
-                {provider.name}
-              </SelectItem>
-            ))}
+            <ScrollArea className="h-[200px]">
+              {Object.entries(API_PROVIDERS).map(([key, provider]) => (
+                <SelectItem key={key} value={key}>
+                  {provider.name}
+                </SelectItem>
+              ))}
+            </ScrollArea>
           </SelectContent>
         </Select>
 
-        <div className="text-sm text-gray-600 mb-2">
-          <p>Para obter sua chave API do {currentProvider.name}:</p>
-          <ol className="list-decimal list-inside space-y-1 mt-2">
-            <li>
-              Acesse o{" "}
-              <a
-                href={currentProvider.docsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 hover:underline inline-flex items-center"
-              >
-                Portal do {currentProvider.name}{" "}
-                <ExternalLink className="w-4 h-4 ml-1" />
-              </a>
-            </li>
-            <li>Faça login com sua conta</li>
-            <li>Crie uma nova chave API</li>
-            <li>Copie a chave gerada (deve começar com '{currentProvider.keyPrefix}')</li>
-          </ol>
-        </div>
+        <Select
+          value={selectedModel}
+          onValueChange={setSelectedModel}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione o modelo" />
+          </SelectTrigger>
+          <SelectContent>
+            <ScrollArea className="h-[200px]">
+              {API_PROVIDERS[selectedProvider as keyof typeof API_PROVIDERS]?.models.map((model) => (
+                <SelectItem key={model} value={model}>
+                  {model}
+                </SelectItem>
+              ))}
+            </ScrollArea>
+          </SelectContent>
+        </Select>
 
         <Input
           type="password"
+          placeholder="Digite sua chave API"
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
-          placeholder={`Digite sua chave API do ${currentProvider.name} (começa com '${currentProvider.keyPrefix}')`}
         />
 
         <Button onClick={handleSaveKey} className="w-full">
@@ -148,7 +132,17 @@ export const ApiKeyManager = () => {
         </Button>
 
         <div className="text-sm text-gray-500">
-          Status: {localStorage.getItem(currentProvider.storageKey) ? "Configurado ✓" : "Não configurado"}
+          <p>
+            Obtenha sua chave API em:{" "}
+            <a
+              href={API_PROVIDERS[selectedProvider as keyof typeof API_PROVIDERS]?.configUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-500 hover:underline"
+            >
+              {API_PROVIDERS[selectedProvider as keyof typeof API_PROVIDERS]?.configUrl}
+            </a>
+          </p>
         </div>
       </div>
     </Card>
