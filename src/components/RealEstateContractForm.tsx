@@ -6,7 +6,7 @@ import { SellerForm } from "./contract/SellerForm";
 import { BuyerForm } from "./contract/BuyerForm";
 import { BankForm } from "./contract/BankForm";
 import { databaseService } from "@/utils/database";
-import { DocumentType } from "./contract/DocumentTypeSelect";
+import { DocumentType } from "@/types/documents";
 
 export const RealEstateContractForm = () => {
   const { toast } = useToast();

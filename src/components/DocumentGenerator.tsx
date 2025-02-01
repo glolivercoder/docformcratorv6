@@ -19,49 +19,26 @@ import Tesseract from 'tesseract.js';
 import { processImageWithGemini } from "@/utils/geminiVision";
 import { OCRSelectionDialog } from "./OCRSelectionDialog";
 
+const OCR_METHODS = {
+  tesseract: {
+    name: "Tesseract OCR",
+    options: [
+      { id: "basic", label: "OCR Básico" },
+      { id: "advanced", label: "OCR Avançado" },
+      { id: "monitoring", label: "AI Monitoring" }
+    ]
+  }
+};
+
 export const DocumentGenerator = () => {
   const [selectedCategory, setSelectedCategory] = useState<DocumentCategory>();
   const [selectedType, setSelectedType] = useState<DocumentType>();
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
-  const [ocrMethod, setOcrMethod] = useState<'tesseract' | 'gemini'>('tesseract');
+  const [ocrMethod, setOcrMethod] = useState("tesseract");
+  const [ocrOption, setOcrOption] = useState("basic");
   const [showOCRDialog, setShowOCRDialog] = useState(false);
   const [ocrData, setOCRData] = useState<Record<string, any>>({});
-  const [currentFormData, setCurrentFormData] = useState<Record<string, any>>({});
-
-  const categories = [
-    { value: DocumentCategory.CONTRACT, label: "Contratos" },
-    { value: DocumentCategory.AUTHORIZATION, label: "Autorizações" },
-    { value: DocumentCategory.LETTER, label: "Cartas" },
-    { value: DocumentCategory.DECLARATION, label: "Declarações" },
-  ];
-
-  const getDocumentTypes = (category: DocumentCategory) => {
-    switch (category) {
-      case DocumentCategory.CONTRACT:
-        return [
-          { value: DocumentType.LEASE_CONTRACT, label: "Contrato de Locação" },
-          { value: DocumentType.SALE_CONTRACT, label: "Contrato de Venda" },
-          {
-            value: DocumentType.MANAGEMENT_CONTRACT,
-            label: "Contrato de Administração",
-          },
-        ];
-      case DocumentCategory.LETTER:
-        return [
-          {
-            value: DocumentType.GUARANTEE_LETTER,
-            label: "Carta de Fiança",
-          },
-          {
-            value: DocumentType.RENT_ADJUSTMENT_LETTER,
-            label: "Carta de Reajuste",
-          },
-        ];
-      default:
-        return [];
-    }
-  };
 
   const handleNewCategory = () => {
     console.log("New category button clicked");
@@ -185,16 +162,36 @@ export const DocumentGenerator = () => {
         <div className="flex gap-2">
           <Select
             value={ocrMethod}
-            onValueChange={(value: 'tesseract' | 'gemini') => setOcrMethod(value)}
+            onValueChange={setOcrMethod}
           >
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Método OCR" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="tesseract">Tesseract OCR</SelectItem>
-              <SelectItem value="gemini">Google Gemini</SelectItem>
+              {Object.entries(OCR_METHODS).map(([key, method]) => (
+                <SelectItem key={key} value={key}>
+                  {method.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
+          
+          <Select
+            value={ocrOption}
+            onValueChange={setOcrOption}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Opção OCR" />
+            </SelectTrigger>
+            <SelectContent>
+              {OCR_METHODS[ocrMethod as keyof typeof OCR_METHODS].options.map((option) => (
+                <SelectItem key={option.id} value={option.id}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           <Button onClick={captureImage} variant="outline" className="flex items-center gap-2">
             <Camera className="w-4 h-4" />
             Capturar
