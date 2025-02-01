@@ -82,25 +82,14 @@ export const RealEstateContractForm = () => {
   });
 
   const handleInputChange = (section: string, field: string, value: any) => {
-    if (field === "documentType") {
-      setFormData(prev => ({
-        ...prev,
-        [section]: {
-          ...prev[section],
-          documentType: value as DocumentType
-        }
-      }));
-      console.log(`Updated ${section}.${field} with DocumentType:`, value);
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [section]: {
-          ...prev[section],
-          [field]: value
-        }
-      }));
-      console.log(`Updated ${section}.${field} with value:`, value);
-    }
+    setFormData(prev => ({
+      ...prev,
+      [section]: {
+        ...prev[section],
+        [field]: value
+      }
+    }));
+    console.log(`Updated ${section}.${field} with value:`, value);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -124,7 +113,7 @@ export const RealEstateContractForm = () => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6 bg-[#F8FAFF] p-6 rounded-lg">
       <SellerForm
         seller={formData.seller!}
         onChange={(field, value) => handleInputChange('seller', field, value)}
@@ -137,7 +126,7 @@ export const RealEstateContractForm = () => {
         bank={formData.bank!}
         onChange={(field, value) => handleInputChange('bank', field, value)}
       />
-      <Button type="submit" className="w-full">
+      <Button type="submit" className="w-full bg-[#1E293B] hover:bg-[#334155]">
         Salvar Contrato
       </Button>
     </form>

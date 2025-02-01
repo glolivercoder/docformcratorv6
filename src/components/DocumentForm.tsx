@@ -139,8 +139,8 @@ export const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormPro
 
   return (
     <div className="space-y-4">
-      <Card className="p-6">
-        <h2 className="text-xl font-semibold mb-4">Formulário do Documento</h2>
+      <Card className="p-6 bg-[#F8FAFF] border border-[#E2E8F0] rounded-lg">
+        <h2 className="text-xl font-semibold mb-4 text-[#1E293B]">Formulário do Documento</h2>
         
         <div className="flex items-center space-x-2 mb-4">
           <Checkbox
@@ -150,8 +150,9 @@ export const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormPro
               setUseSystemDate(checked);
               handleInputChange('usarDataSistema', checked, null);
             }}
+            className="border-[#E2E8F0]"
           />
-          <Label htmlFor="useSystemDate">
+          <Label htmlFor="useSystemDate" className="text-[#475569]">
             Usar data atual do sistema
           </Label>
         </div>
@@ -161,17 +162,17 @@ export const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormPro
         </Accordion>
 
         <div className="flex gap-2">
-          <Button onClick={generatePDF} className="flex items-center gap-2">
+          <Button onClick={generatePDF} className="flex items-center gap-2 bg-[#1E293B] hover:bg-[#334155]">
             <FileDown className="w-4 h-4" />
             Exportar PDF
           </Button>
-          <Button onClick={generateImage} className="flex items-center gap-2">
+          <Button onClick={generateImage} className="flex items-center gap-2 bg-[#1E293B] hover:bg-[#334155]">
             <Image className="w-4 h-4" />
             Exportar Imagem
           </Button>
           <Button
             onClick={() => window.print()}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 bg-[#1E293B] hover:bg-[#334155]"
           >
             <Printer className="w-4 h-4" />
             Imprimir
@@ -179,7 +180,7 @@ export const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormPro
         </div>
       </Card>
 
-      <Card className="p-6" id="document-content">
+      <Card className="p-6 bg-white" id="document-content">
         <div className="prose max-w-none">
           <h1 className="text-2xl font-bold text-center mb-6">
             {documentType === DocumentType.LEASE_CONTRACT
