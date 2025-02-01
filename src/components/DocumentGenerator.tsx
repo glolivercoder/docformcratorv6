@@ -30,6 +30,31 @@ const OCR_METHODS = {
   }
 };
 
+const categories = [
+  { value: DocumentCategory.CONTRACT, label: "Contratos" },
+  { value: DocumentCategory.AUTHORIZATION, label: "Autorizações" },
+  { value: DocumentCategory.LETTER, label: "Cartas" },
+  { value: DocumentCategory.DECLARATION, label: "Declarações" },
+];
+
+const getDocumentTypes = (category: DocumentCategory) => {
+  switch (category) {
+    case DocumentCategory.CONTRACT:
+      return [
+        { value: DocumentType.LEASE_CONTRACT, label: "Contrato de Locação" },
+        { value: DocumentType.SALE_CONTRACT, label: "Contrato de Venda" },
+        { value: DocumentType.MANAGEMENT_CONTRACT, label: "Contrato de Administração" },
+      ];
+    case DocumentCategory.LETTER:
+      return [
+        { value: DocumentType.GUARANTEE_LETTER, label: "Carta de Fiança" },
+        { value: DocumentType.RENT_ADJUSTMENT_LETTER, label: "Carta de Reajuste" },
+      ];
+    default:
+      return [];
+  }
+};
+
 export const DocumentGenerator = () => {
   const [selectedCategory, setSelectedCategory] = useState<DocumentCategory>();
   const [selectedType, setSelectedType] = useState<DocumentType>();
@@ -39,6 +64,7 @@ export const DocumentGenerator = () => {
   const [ocrOption, setOcrOption] = useState("basic");
   const [showOCRDialog, setShowOCRDialog] = useState(false);
   const [ocrData, setOCRData] = useState<Record<string, any>>({});
+  const [currentFormData, setCurrentFormData] = useState<Record<string, any>>({});
 
   const handleNewCategory = () => {
     console.log("New category button clicked");
