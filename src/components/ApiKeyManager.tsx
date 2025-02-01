@@ -14,7 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 const API_PROVIDERS = {
   gemini: {
-    name: "AI Monitoring",
+    name: "Google Gemini",
     models: [
       "gemini-pro-vision",
       "gemini-pro",

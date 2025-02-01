@@ -15,53 +15,53 @@ import { DocumentForm } from "./DocumentForm";
 import { ApiKeyManager } from "./ApiKeyManager";
 import { DocumentCategory, DocumentType } from "@/types/documents";
 import { useToast } from "@/components/ui/use-toast";
+import Tesseract from 'tesseract.js';
 import { processImageWithGemini } from "@/utils/geminiVision";
 import { OCRSelectionDialog } from "./OCRSelectionDialog";
-
-const categories = [
-  { value: DocumentCategory.REAL_ESTATE, label: "Documentos Imobiliários" },
-  { value: DocumentCategory.CONTRACT, label: "Contratos" },
-  { value: DocumentCategory.AUTHORIZATION, label: "Autorizações" },
-  { value: DocumentCategory.LETTER, label: "Cartas" },
-  { value: DocumentCategory.DECLARATION, label: "Declarações" },
-];
-
-const getDocumentTypes = (category: DocumentCategory) => {
-  switch (category) {
-    case DocumentCategory.REAL_ESTATE:
-      return [
-        { value: DocumentType.LEASE_CONTRACT, label: "Contrato de Locação" },
-        { value: DocumentType.SALE_CONTRACT, label: "Contrato de Venda" },
-        { value: DocumentType.MANAGEMENT_CONTRACT, label: "Contrato de Administração" },
-      ];
-    case DocumentCategory.LETTER:
-      return [
-        { value: DocumentType.GUARANTEE_LETTER, label: "Carta de Fiança" },
-        { value: DocumentType.RENT_ADJUSTMENT_LETTER, label: "Carta de Reajuste" },
-      ];
-    case DocumentCategory.AUTHORIZATION:
-      return [
-        { value: DocumentType.PROPERTY_SHOWING_AUTH, label: "Autorização de Visita" },
-        { value: DocumentType.SALE_AUTH, label: "Autorização de Venda" },
-      ];
-    case DocumentCategory.DECLARATION:
-      return [
-        { value: DocumentType.RESIDENCE_DECLARATION, label: "Declaração de Residência" },
-        { value: DocumentType.PAYMENT_DECLARATION, label: "Declaração de Pagamento" },
-      ];
-    default:
-      return [];
-  }
-};
 
 export const DocumentGenerator = () => {
   const [selectedCategory, setSelectedCategory] = useState<DocumentCategory>();
   const [selectedType, setSelectedType] = useState<DocumentType>();
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
+  const [ocrMethod, setOcrMethod] = useState<'tesseract' | 'gemini'>('tesseract');
   const [showOCRDialog, setShowOCRDialog] = useState(false);
   const [ocrData, setOCRData] = useState<Record<string, any>>({});
   const [currentFormData, setCurrentFormData] = useState<Record<string, any>>({});
+
+  const categories = [
+    { value: DocumentCategory.CONTRACT, label: "Contratos" },
+    { value: DocumentCategory.AUTHORIZATION, label: "Autorizações" },
+    { value: DocumentCategory.LETTER, label: "Cartas" },
+    { value: DocumentCategory.DECLARATION, label: "Declarações" },
+  ];
+
+  const getDocumentTypes = (category: DocumentCategory) => {
+    switch (category) {
+      case DocumentCategory.CONTRACT:
+        return [
+          { value: DocumentType.LEASE_CONTRACT, label: "Contrato de Locação" },
+          { value: DocumentType.SALE_CONTRACT, label: "Contrato de Venda" },
+          {
+            value: DocumentType.MANAGEMENT_CONTRACT,
+            label: "Contrato de Administração",
+          },
+        ];
+      case DocumentCategory.LETTER:
+        return [
+          {
+            value: DocumentType.GUARANTEE_LETTER,
+            label: "Carta de Fiança",
+          },
+          {
+            value: DocumentType.RENT_ADJUSTMENT_LETTER,
+            label: "Carta de Reajuste",
+          },
+        ];
+      default:
+        return [];
+    }
+  };
 
   const handleNewCategory = () => {
     console.log("New category button clicked");
@@ -71,27 +71,61 @@ export const DocumentGenerator = () => {
     });
   };
 
+  const handleNewTemplate = () => {
+    console.log("New template button clicked");
+    toast({
+      title: "Em desenvolvimento",
+      description: "A criação de novos modelos estará disponível em breve.",
+    });
+  };
+
   const handleImageCapture = async (file: File) => {
     try {
-      console.log("Starting document analysis with Gemini Vision");
+      console.log("Starting OCR processing with method:", ocrMethod);
       toast({
         title: "Processando documento",
         description: "Aguarde enquanto extraímos as informações...",
       });
 
-      const extractedData = await processImageWithGemini(file);
-      console.log("Extracted data from Gemini:", extractedData);
+      let extractedData;
 
-      if (!extractedData || Object.keys(extractedData).length === 0) {
+      if (ocrMethod === 'gemini') {
+        extractedData = await processImageWithGemini(file);
+      } else {
+        const result = await Tesseract.recognize(file, 'por', {
+          logger: m => console.log('Tesseract progress:', m),
+          langPath: 'https://tessdata.projectnaptha.com/4.0.0',
+          errorHandler: (err: any) => {
+            console.error('Tesseract error:', err);
+          }
+        });
+
+        console.log("Raw OCR Result:", result.data.text);
+        
+        const cleanText = result.data.text.replace(/\s+/g, ' ').trim();
+        console.log("Cleaned text:", cleanText);
+
+        extractedData = {
+          nomeCompleto: cleanText.match(/nome:?\s*([^:\n]+?)(?:\s*cpf|\s*rg|\s*$)/i)?.[1]?.trim(),
+          cpf: cleanText.match(/cpf:?\s*(\d{3}\.?\d{3}\.?\d{3}-?\d{2})/i)?.[1]?.trim(),
+          rg: cleanText.match(/rg:?\s*(\d{1,2}\.?\d{3}\.?\d{3}(?:-|\/|\s+)?\d{1})/i)?.[1]?.trim(),
+          orgaoExpedidor: cleanText.match(/(?:orgao|órgão)\s*emissor:?\s*([^:\n]+?)(?:\s*cpf|\s*rg|\s*$)/i)?.[1]?.trim(),
+          filiacao: cleanText.match(/filia[çc][aã]o:?\s*([^:\n]+?)(?:\s*cpf|\s*rg|\s*$)/i)?.[1]?.trim(),
+          dataEmissao: cleanText.match(/(?:data\s+de\s+)?emiss[aã]o:?\s*(\d{2}\/\d{2}\/\d{4}|\d{2}\.\d{2}\.\d{4})/i)?.[1]?.trim(),
+        };
+      }
+
+      if (!extractedData || Object.values(extractedData).every(v => !v)) {
         console.error("No data could be extracted from the image");
         toast({
           variant: "destructive",
           title: "Erro na extração",
-          description: "Não foi possível extrair dados da imagem. Tente uma foto com melhor qualidade.",
+          description: "Não foi possível extrair dados da imagem. Tente tirar uma foto com melhor iluminação e foco.",
         });
         return;
       }
 
+      console.log("Final extracted data:", extractedData);
       setOCRData(extractedData);
       setShowOCRDialog(true);
       
@@ -100,13 +134,17 @@ export const DocumentGenerator = () => {
         description: "Por favor, confirme se os dados estão corretos.",
       });
     } catch (error) {
-      console.error("Document analysis error:", error);
+      console.error("OCR Error:", error);
       toast({
         variant: "destructive",
         title: "Erro no processamento",
-        description: "Ocorreu um erro ao processar o documento. Tente novamente.",
+        description: "Não foi possível extrair os dados do documento. Tente novamente com uma imagem mais clara.",
       });
     }
+  };
+
+  const handleOCRSelection = (field: string, value: string) => {
+    console.log("Selected OCR data:", { field, value });
   };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -121,7 +159,6 @@ export const DocumentGenerator = () => {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       console.log("Camera access granted:", stream);
       
-      // Aqui você implementaria a lógica de captura da imagem
       toast({
         title: "Câmera ativada",
         description: "Posicione o documento no centro da tela.",
@@ -141,10 +178,26 @@ export const DocumentGenerator = () => {
       <ApiKeyManager />
       
       <div className="flex justify-between items-center mb-6">
+        <Button onClick={handleNewTemplate} className="flex items-center gap-2">
+          <Plus className="w-4 h-4" />
+          Novo Modelo de Documento
+        </Button>
         <div className="flex gap-2">
+          <Select
+            value={ocrMethod}
+            onValueChange={(value: 'tesseract' | 'gemini') => setOcrMethod(value)}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Método OCR" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="tesseract">Tesseract OCR</SelectItem>
+              <SelectItem value="gemini">Google Gemini</SelectItem>
+            </SelectContent>
+          </Select>
           <Button onClick={captureImage} variant="outline" className="flex items-center gap-2">
             <Camera className="w-4 h-4" />
-            Capturar Imagem
+            Capturar
           </Button>
           <div className="relative">
             <input
@@ -237,10 +290,7 @@ export const DocumentGenerator = () => {
         onOpenChange={setShowOCRDialog}
         ocrData={ocrData}
         formData={currentFormData}
-        onSelection={(field, value) => {
-          console.log("Selected OCR data:", { field, value });
-          // Implementar a lógica de seleção
-        }}
+        onSelection={handleOCRSelection}
       />
     </div>
   );

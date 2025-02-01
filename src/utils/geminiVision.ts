@@ -6,7 +6,11 @@ export const processImageWithGemini = async (imageFile: File) => {
     
     const apiKey = localStorage.getItem("geminiApiKey");
     if (!apiKey || apiKey.trim() === '') {
-      throw new Error("Configure sua chave API do Gemini nas configurações primeiro.");
+      throw new Error("Please configure your Gemini API key in the settings first.");
+    }
+
+    if (!apiKey.startsWith('AI')) {
+      throw new Error("The provided API key appears to be invalid. Please check your Gemini API key format.");
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
@@ -18,24 +22,21 @@ export const processImageWithGemini = async (imageFile: File) => {
       reader.readAsDataURL(imageFile);
     });
 
+    // Remove data URL prefix
     const base64Data = base64Image.split(',')[1];
 
-    // Using the new gemini-1.5-flash model
+    // Initialize Gemini 1.5 Flash model instead of pro-vision
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    const prompt = `Extraia as seguintes informações deste documento, se presentes:
-    - Nome Completo
-    - CPF
-    - RG
-    - Órgão Expedidor
-    - Data de Emissão
-    - Filiação
-    - Endereço
-    - Estado Civil
-    - Nacionalidade
-    - Profissão
-    
-    Retorne apenas os dados encontrados em formato JSON com estes campos.`;
+    const prompt = `Extract the following information from this document image if present:
+    - Full Name
+    - CPF number
+    - RG number
+    - Address
+    - Phone numbers
+    - Professional information
+    - Bank details
+    Format the response as a JSON object with these fields.`;
 
     const result = await model.generateContent([
       prompt,

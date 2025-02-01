@@ -6,7 +6,7 @@ import { SellerForm } from "./contract/SellerForm";
 import { BuyerForm } from "./contract/BuyerForm";
 import { BankForm } from "./contract/BankForm";
 import { databaseService } from "@/utils/database";
-import { DocumentType } from "@/types/documents";
+import { DocumentType } from "./contract/DocumentTypeSelect";
 
 export const RealEstateContractForm = () => {
   const { toast } = useToast();
@@ -19,14 +19,14 @@ export const RealEstateContractForm = () => {
       maritalStatus: "",
       address: "",
       document: "",
-      documentType: DocumentType.LEASE_CONTRACT,
+      documentType: DocumentType.RG,
       documentFields: {},
       hasSpouse: false,
       spouse: {
         name: "",
         nationality: "",
         document: "",
-        documentType: DocumentType.LEASE_CONTRACT,
+        documentType: DocumentType.RG,
         documentFields: {},
       },
     },
@@ -36,14 +36,14 @@ export const RealEstateContractForm = () => {
       maritalStatus: "",
       address: "",
       document: "",
-      documentType: DocumentType.LEASE_CONTRACT,
+      documentType: DocumentType.RG,
       documentFields: {},
       hasSpouse: false,
       spouse: {
         name: "",
         nationality: "",
         document: "",
-        documentType: DocumentType.LEASE_CONTRACT,
+        documentType: DocumentType.RG,
         documentFields: {},
       },
     },
@@ -89,7 +89,6 @@ export const RealEstateContractForm = () => {
         [field]: value
       }
     }));
-    console.log(`Updated ${section}.${field} with value:`, value);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -101,7 +100,6 @@ export const RealEstateContractForm = () => {
         title: "Sucesso",
         description: "Contrato salvo com sucesso!",
       });
-      console.log("Contract saved successfully:", formData);
     } catch (error) {
       console.error("Error saving contract:", error);
       toast({
@@ -113,7 +111,7 @@ export const RealEstateContractForm = () => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 bg-[#F8FAFF] p-6 rounded-lg">
+    <form onSubmit={handleSubmit} className="space-y-6">
       <SellerForm
         seller={formData.seller!}
         onChange={(field, value) => handleInputChange('seller', field, value)}
@@ -126,7 +124,7 @@ export const RealEstateContractForm = () => {
         bank={formData.bank!}
         onChange={(field, value) => handleInputChange('bank', field, value)}
       />
-      <Button type="submit" className="w-full bg-[#1E293B] hover:bg-[#334155]">
+      <Button type="submit" className="w-full">
         Salvar Contrato
       </Button>
     </form>

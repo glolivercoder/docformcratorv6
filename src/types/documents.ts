@@ -3,30 +3,29 @@ export enum DocumentCategory {
   AUTHORIZATION = "AUTHORIZATION",
   LETTER = "LETTER",
   DECLARATION = "DECLARATION",
-  REAL_ESTATE = "REAL_ESTATE"
 }
 
 export enum DocumentType {
-  // Contratos Imobiliários
+  // Contracts
   LEASE_CONTRACT = "LEASE_CONTRACT",
   SALE_CONTRACT = "SALE_CONTRACT",
   MANAGEMENT_CONTRACT = "MANAGEMENT_CONTRACT",
   
-  // Cartas
+  // Letters
   GUARANTEE_LETTER = "GUARANTEE_LETTER",
   RENT_ADJUSTMENT_LETTER = "RENT_ADJUSTMENT_LETTER",
   
-  // Autorizações
+  // Authorizations
   PROPERTY_SHOWING_AUTH = "PROPERTY_SHOWING_AUTH",
   SALE_AUTH = "SALE_AUTH",
   
-  // Declarações
+  // Declarations
   RESIDENCE_DECLARATION = "RESIDENCE_DECLARATION",
   PAYMENT_DECLARATION = "PAYMENT_DECLARATION",
 }
 
 export interface Person {
-  id?: string;
+  id: string;
   name: string;
   cpf: string;
   rg: string;
@@ -38,38 +37,27 @@ export interface Person {
   profession?: string;
 }
 
-export interface RealEstateParty extends Person {
-  documentType: DocumentType;
-  documentFields?: Record<string, string>;
-  hasSpouse?: boolean;
-  spouse?: {
-    name: string;
-    nationality: string;
-    document: string;
-    documentType: DocumentType;
-    documentFields?: Record<string, string>;
-  };
+export interface Realtor extends Person {
+  creciNumber: string;
+  company: string;
+}
+
+export interface Lawyer extends Person {
+  oabNumber: string;
+  oabState: string;
+}
+
+export interface Client extends Person {
+  clientType: "OWNER" | "TENANT" | "GUARANTOR";
 }
 
 export interface Property {
+  id: string;
   address: string;
   registrationNumber: string;
+  iptuNumber: string;
   area: number;
-  parkingSpaces?: number;
-  privateArea?: number;
-  commonArea?: number;
-  totalArea?: number;
-  idealFraction?: string;
-  iptuNumber?: string;
-}
-
-export interface RealEstateContract {
-  seller: RealEstateParty;
-  buyer: RealEstateParty;
-  property: Property;
-  date: string;
-  witnesses?: {
-    witness1: Person;
-    witness2: Person;
-  };
+  rooms: number;
+  type: "HOUSE" | "APARTMENT" | "COMMERCIAL";
+  features: string[];
 }

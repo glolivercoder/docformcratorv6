@@ -23,53 +23,48 @@ export const DocumentTypeSelect = ({ value, onChange, onFieldChange, fields }: D
     switch (value) {
       case DocumentType.RG:
         return (
-          <div className="space-y-6">
+          <>
             <div className="space-y-2">
-              <Label htmlFor="rg" className="text-sm text-[#475569]">RG</Label>
+              <Label htmlFor="rg">RG</Label>
               <Input
                 id="rg"
                 value={fields.rg || ""}
                 onChange={(e) => onFieldChange("rg", e.target.value)}
-                className="bg-white border-[#E2E8F0] focus:border-[#3B82F6] focus:ring-1 focus:ring-[#3B82F6]"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="issuingAgency" className="text-sm text-[#475569]">Órgão Expedidor</Label>
+              <Label htmlFor="issuingAgency">Órgão Expedidor</Label>
               <Input
                 id="issuingAgency"
                 value={fields.issuingAgency || ""}
                 onChange={(e) => onFieldChange("issuingAgency", e.target.value)}
-                className="bg-white border-[#E2E8F0] focus:border-[#3B82F6] focus:ring-1 focus:ring-[#3B82F6]"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="city" className="text-sm text-[#475569]">Cidade</Label>
+              <Label htmlFor="city">Cidade</Label>
               <Input
                 id="city"
                 value={fields.city || ""}
                 onChange={(e) => onFieldChange("city", e.target.value)}
-                className="bg-white border-[#E2E8F0] focus:border-[#3B82F6] focus:ring-1 focus:ring-[#3B82F6]"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="filiation" className="text-sm text-[#475569]">Filiação</Label>
+              <Label htmlFor="filiation">Filiação</Label>
               <Input
                 id="filiation"
                 value={fields.filiation || ""}
                 onChange={(e) => onFieldChange("filiation", e.target.value)}
-                className="bg-white border-[#E2E8F0] focus:border-[#3B82F6] focus:ring-1 focus:ring-[#3B82F6]"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="issueDate" className="text-sm text-[#475569]">Data de Emissão</Label>
+              <Label htmlFor="issueDate">Data de Emissão</Label>
               <Input
                 id="issueDate"
                 value={fields.issueDate || ""}
                 onChange={(e) => onFieldChange("issueDate", e.target.value)}
-                className="bg-white border-[#E2E8F0] focus:border-[#3B82F6] focus:ring-1 focus:ring-[#3B82F6]"
               />
             </div>
-          </div>
+          </>
         );
       case DocumentType.CRECI:
         return (
@@ -118,11 +113,11 @@ export const DocumentTypeSelect = ({ value, onChange, onFieldChange, fields }: D
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="space-y-2">
-        <Label className="text-sm text-[#475569]">Tipo de Documento</Label>
+        <Label>Tipo de Documento</Label>
         <Select value={value} onValueChange={onChange}>
-          <SelectTrigger className="bg-white border-[#E2E8F0] focus:border-[#3B82F6] focus:ring-1 focus:ring-[#3B82F6]">
+          <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
