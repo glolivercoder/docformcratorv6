@@ -11,7 +11,7 @@ export const processImageWithGemini = async (imageFile: File) => {
 
     const genAI = new GoogleGenerativeAI(apiKey);
     
-    // Converter File para base64
+    // Convert File to base64
     const base64Image = await new Promise<string>((resolve) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result as string);
@@ -20,7 +20,8 @@ export const processImageWithGemini = async (imageFile: File) => {
 
     const base64Data = base64Image.split(',')[1];
 
-    const model = genAI.getGenerativeModel({ model: "gemini-pro-vision" });
+    // Using the new gemini-1.5-flash model
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const prompt = `Extraia as seguintes informações deste documento, se presentes:
     - Nome Completo
