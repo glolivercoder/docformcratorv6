@@ -46,39 +46,43 @@ export const SellerForm = ({ seller, onChange }: SellerFormProps) => {
   };
 
   return (
-    <Card className="p-6">
-      <h2 className="text-xl font-semibold mb-4">Informações do Vendedor</h2>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="sellerName">Nome</Label>
+    <Card className="p-6 bg-[#F8FAFF] border border-[#E2E8F0] rounded-lg">
+      <h2 className="text-xl font-semibold mb-6 text-[#1E293B]">Informações do Vendedor</h2>
+      <div className="grid grid-cols-2 gap-6">
+        <div className="space-y-2">
+          <Label htmlFor="sellerName" className="text-sm text-[#475569]">Nome</Label>
           <Input
             id="sellerName"
             value={seller.name}
             onChange={(e) => onChange("name", e.target.value)}
+            className="bg-white border-[#E2E8F0] focus:border-[#3B82F6] focus:ring-1 focus:ring-[#3B82F6]"
           />
         </div>
-        <div>
-          <Label htmlFor="sellerNationality">Nacionalidade</Label>
+        <div className="space-y-2">
+          <Label htmlFor="sellerNationality" className="text-sm text-[#475569]">Nacionalidade</Label>
           <Input
             id="sellerNationality"
             value={seller.nationality}
             onChange={(e) => onChange("nationality", e.target.value)}
+            className="bg-white border-[#E2E8F0] focus:border-[#3B82F6] focus:ring-1 focus:ring-[#3B82F6]"
           />
         </div>
-        <div>
-          <Label htmlFor="sellerMaritalStatus">Estado Civil</Label>
+        <div className="space-y-2">
+          <Label htmlFor="sellerMaritalStatus" className="text-sm text-[#475569]">Estado Civil</Label>
           <Input
             id="sellerMaritalStatus"
             value={seller.maritalStatus}
             onChange={(e) => onChange("maritalStatus", e.target.value)}
+            className="bg-white border-[#E2E8F0] focus:border-[#3B82F6] focus:ring-1 focus:ring-[#3B82F6]"
           />
         </div>
-        <div>
-          <Label htmlFor="sellerAddress">Endereço</Label>
+        <div className="space-y-2">
+          <Label htmlFor="sellerAddress" className="text-sm text-[#475569]">Endereço</Label>
           <Input
             id="sellerAddress"
             value={seller.address}
             onChange={(e) => onChange("address", e.target.value)}
+            className="bg-white border-[#E2E8F0] focus:border-[#3B82F6] focus:ring-1 focus:ring-[#3B82F6]"
           />
         </div>
         
@@ -91,35 +95,38 @@ export const SellerForm = ({ seller, onChange }: SellerFormProps) => {
           />
         </div>
 
-        <div className="col-span-2 flex items-center space-x-2">
+        <div className="col-span-2 flex items-center space-x-2 mt-4">
           <Switch
             checked={showSpouse}
             onCheckedChange={(checked) => {
               setShowSpouse(checked);
               onChange("hasSpouse", checked);
             }}
+            className="data-[state=checked]:bg-[#3B82F6]"
           />
-          <Label>Incluir Cônjuge</Label>
+          <Label className="text-sm text-[#475569]">Incluir Cônjuge</Label>
         </div>
 
         {showSpouse && (
-          <div className="col-span-2 space-y-4">
-            <h3 className="text-lg font-semibold">Informações do Cônjuge</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="spouseName">Nome do Cônjuge</Label>
+          <div className="col-span-2 space-y-6 mt-4 p-4 bg-white rounded-lg border border-[#E2E8F0]">
+            <h3 className="text-lg font-semibold text-[#1E293B]">Informações do Cônjuge</h3>
+            <div className="grid grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="spouseName" className="text-sm text-[#475569]">Nome do Cônjuge</Label>
                 <Input
                   id="spouseName"
                   value={seller.spouse?.name || ""}
                   onChange={(e) => handleSpouseChange("name", e.target.value)}
+                  className="bg-white border-[#E2E8F0] focus:border-[#3B82F6] focus:ring-1 focus:ring-[#3B82F6]"
                 />
               </div>
-              <div>
-                <Label htmlFor="spouseNationality">Nacionalidade do Cônjuge</Label>
+              <div className="space-y-2">
+                <Label htmlFor="spouseNationality" className="text-sm text-[#475569]">Nacionalidade do Cônjuge</Label>
                 <Input
                   id="spouseNationality"
                   value={seller.spouse?.nationality || ""}
                   onChange={(e) => handleSpouseChange("nationality", e.target.value)}
+                  className="bg-white border-[#E2E8F0] focus:border-[#3B82F6] focus:ring-1 focus:ring-[#3B82F6]"
                 />
               </div>
               <div className="col-span-2">
