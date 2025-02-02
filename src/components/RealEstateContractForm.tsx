@@ -8,7 +8,7 @@ import { BankForm } from "./contract/BankForm";
 import { databaseService } from "@/utils/database";
 import { DocumentType } from "./contract/DocumentTypeSelect";
 
-export const RealEstateContractForm = () => {
+function RealEstateContractForm() {
   const { toast } = useToast();
   const [formData, setFormData] = useState<Partial<RealEstateContract>>({
     buildingName: "",
@@ -129,4 +129,6 @@ export const RealEstateContractForm = () => {
       </Button>
     </form>
   );
-};
+}
+
+export default RealEstateContractForm;

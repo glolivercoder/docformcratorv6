@@ -13,7 +13,7 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { analyzeDocument, processImage } from "@/utils/documentAnalysis";
 
-export const UserManagement = () => {
+function UserManagement() {
   const [userType, setUserType] = useState("");
   const [documentType, setDocumentType] = useState("");
   const [userData, setUserData] = useState({
@@ -286,4 +286,6 @@ export const UserManagement = () => {
       </form>
     </Card>
   );
-};
+}
+
+export default UserManagement;

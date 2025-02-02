@@ -1,29 +1,41 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
-import React from "react";
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import MainNavigation from './components/navigation/MainNavigation';
+import ContractForm from './components/ContractForm';
+import DocumentTemplateManager from './components/DocumentTemplateManager';
+import DocumentAnalyzer from './components/DocumentAnalyzer';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Toaster } from './components/ui/toaster';
+import { TooltipProvider } from './components/ui/tooltip';
+import Index from './pages/Index';
+import React from 'react';
+import './App.css';
 
 const queryClient = new QueryClient();
 
-const App = () => {
+function App() {
   return (
     <React.StrictMode>
       <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <TooltipProvider>
-            <Routes>
-              <Route path="/" element={<Index />} />
-            </Routes>
+        <Router>
+          <div className="min-h-screen bg-background">
+            <MainNavigation />
+            <TooltipProvider>
+              <main className="container mx-auto py-6">
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/novo-contrato" element={<ContractForm />} />
+                  <Route path="/documentos" element={<DocumentAnalyzer />} />
+                  <Route path="/modelos" element={<DocumentTemplateManager />} />
+                  <Route path="/cadastros" element={<div>Cadastros</div>} />
+                </Routes>
+              </main>
+            </TooltipProvider>
             <Toaster />
-            <Sonner />
-          </TooltipProvider>
-        </BrowserRouter>
+          </div>
+        </Router>
       </QueryClientProvider>
     </React.StrictMode>
   );
-};
+}
 
 export default App;

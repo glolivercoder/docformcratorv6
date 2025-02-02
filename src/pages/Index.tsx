@@ -1,10 +1,10 @@
 import React from "react";
-import { DocumentGenerator } from "@/components/DocumentGenerator";
-import { UserManagement } from "@/components/UserManagement";
-import { DocumentTemplateManager } from "@/components/DocumentTemplateManager";
+import DocumentGenerator from "@/components/DocumentGenerator";
+import UserManagement from "@/components/UserManagement";
+import DocumentTemplateManager from "@/components/DocumentTemplateManager";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ApiKeyDialog } from "@/components/ApiKeyDialog";
-import { RealEstateContractForm } from "@/components/RealEstateContractForm";
+import ApiKeyDialog from "@/components/ApiKeyDialog";
+import RealEstateContractForm from "@/components/RealEstateContractForm";
 
 const Index = () => {
   return (

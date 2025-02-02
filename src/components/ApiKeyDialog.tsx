@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 
-export const ApiKeyDialog = () => {
+function ApiKeyDialog() {
   const [apiKey, setApiKey] = useState("");
   const { toast } = useToast();
 
@@ -54,4 +54,6 @@ export const ApiKeyDialog = () => {
       </DialogContent>
     </Dialog>
   );
-};
+}
+
+export default ApiKeyDialog;

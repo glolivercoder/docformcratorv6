@@ -19,7 +19,7 @@ import Tesseract from 'tesseract.js';
 import { processImageWithGemini } from "@/utils/geminiVision";
 import { OCRSelectionDialog } from "./OCRSelectionDialog";
 
-export const DocumentGenerator = () => {
+function DocumentGenerator() {
   const [selectedCategory, setSelectedCategory] = useState<DocumentCategory>();
   const [selectedType, setSelectedType] = useState<DocumentType>();
   const [searchQuery, setSearchQuery] = useState("");
@@ -295,3 +295,5 @@ export const DocumentGenerator = () => {
     </div>
   );
 };
+
+export default DocumentGenerator;
