@@ -9,15 +9,6 @@ import RealEstateContractForm from "@/components/RealEstateContractForm";
 const Index = () => {
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
-          <h1 className="text-2xl font-semibold text-gray-900">
-            Sistema de Documentos Imobiliários
-          </h1>
-          <ApiKeyDialog />
-        </div>
-      </header>
-
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Tabs defaultValue="contract" className="space-y-4">
           <TabsList>
@@ -40,6 +31,7 @@ const Index = () => {
           </TabsContent>
         </Tabs>
       </main>
+      <ApiKeyDialog />
     </div>
   );
 };
