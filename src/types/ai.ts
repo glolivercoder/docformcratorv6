@@ -5,8 +5,6 @@ export interface AIModel {
   capabilities: string[];
   maxTokens: number;
   pricePerToken: number;
-  apiKeyEnvVar: string;
-  endpoint?: string;
 }
 
 export interface AIServiceConfig {
@@ -24,7 +22,7 @@ export interface AIAnalysisResult {
   }>;
   documentType?: string;
   suggestedTemplate?: string;
-  metadata?: Record<string, any>;
+  metadata?: any;
 }
 
 export const availableModels: AIModel[] = [
@@ -34,8 +32,7 @@ export const availableModels: AIModel[] = [
     provider: 'OpenAI',
     capabilities: ['text', 'analysis', 'extraction'],
     maxTokens: 8192,
-    pricePerToken: 0.00003,
-    apiKeyEnvVar: 'OPENAI_API_KEY'
+    pricePerToken: 0.00003
   },
   {
     id: 'claude-3',
@@ -43,8 +40,7 @@ export const availableModels: AIModel[] = [
     provider: 'Anthropic',
     capabilities: ['text', 'analysis', 'extraction'],
     maxTokens: 100000,
-    pricePerToken: 0.00001,
-    apiKeyEnvVar: 'ANTHROPIC_API_KEY'
+    pricePerToken: 0.00001
   },
   {
     id: 'command',
@@ -52,8 +48,7 @@ export const availableModels: AIModel[] = [
     provider: 'Cohere',
     capabilities: ['text', 'analysis'],
     maxTokens: 4096,
-    pricePerToken: 0.00002,
-    apiKeyEnvVar: 'COHERE_API_KEY'
+    pricePerToken: 0.00002
   },
   {
     id: 'j2-ultra',
@@ -61,7 +56,6 @@ export const availableModels: AIModel[] = [
     provider: 'AI21',
     capabilities: ['text', 'analysis'],
     maxTokens: 8192,
-    pricePerToken: 0.00002,
-    apiKeyEnvVar: 'AI21_API_KEY'
+    pricePerToken: 0.00002
   }
 ];

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,25 +6,30 @@ import { useToast } from '@/components/ui/use-toast';
 import { ModelSelector } from './ai/ModelSelector';
 import { AIService } from '@/services/AIService';
 import { AIAnalysisResult } from '@/types/ai';
-import { Loader2, FileText } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 function DocumentAnalyzer() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<AIAnalysisResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
-  const aiService = AIService.getInstance();
 
   const handleModelSelect = (modelId: string) => {
     try {
+      const aiService = AIService.getInstance();
       aiService.setActiveModel(modelId);
+      setError(null);
       toast({
         title: 'Modelo selecionado',
         description: 'O modelo de IA foi configurado com sucesso.',
       });
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao configurar modelo';
+      setError(errorMessage);
       toast({
         title: 'Erro',
-        description: error instanceof Error ? error.message : 'Erro ao configurar modelo',
+        description: errorMessage,
         variant: 'destructive',
       });
     }
@@ -35,22 +40,24 @@ function DocumentAnalyzer() {
     if (!file) return;
 
     setIsAnalyzing(true);
+    setError(null);
+    
     try {
-      // Primeiro, extrair o texto do arquivo
       const text = await extractTextFromFile(file);
-      
-      // Analisar com o modelo de IA selecionado
+      const aiService = AIService.getInstance();
       const analysisResult = await aiService.analyze(text);
-      setResult(analysisResult);
       
+      setResult(analysisResult);
       toast({
         title: 'Análise concluída',
         description: 'O documento foi analisado com sucesso.',
       });
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao analisar documento';
+      setError(errorMessage);
       toast({
         title: 'Erro',
-        description: error instanceof Error ? error.message : 'Erro ao analisar documento',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -59,11 +66,13 @@ function DocumentAnalyzer() {
   };
 
   const extractTextFromFile = async (file: File): Promise<string> => {
-    // Implementar extração de texto baseada no tipo de arquivo
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
         resolve(e.target?.result as string);
+      };
+      reader.onerror = () => {
+        reject(new Error('Erro ao ler o arquivo'));
       };
       reader.readAsText(file);
     });
@@ -78,6 +87,13 @@ function DocumentAnalyzer() {
           <h3 className="text-lg font-semibold">Upload de Documento</h3>
           
           <div className="space-y-4">
+            {error && (
+              <Alert variant="destructive">
+                <AlertTitle>Erro</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
             <Input
               type="file"
               onChange={handleFileUpload}
@@ -119,6 +135,15 @@ function DocumentAnalyzer() {
                 ))}
               </div>
             </div>
+
+            {result.metadata && (
+              <div>
+                <h4 className="font-medium">Análise Detalhada</h4>
+                <pre className="mt-2 p-4 bg-secondary rounded overflow-auto max-h-96">
+                  {JSON.stringify(result.metadata, null, 2)}
+                </pre>
+              </div>
+            )}
           </div>
         </Card>
       )}

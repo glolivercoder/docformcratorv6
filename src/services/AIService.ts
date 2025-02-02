@@ -25,26 +25,32 @@ export class AIService {
   }
 
   private loadAPIKeys() {
-    availableModels.forEach(model => {
-      const apiKey = process.env[model.apiKeyEnvVar];
+    const envKeys = {
+      'gpt-4': import.meta.env.VITE_OPENAI_API_KEY,
+      'claude-3': import.meta.env.VITE_ANTHROPIC_API_KEY,
+      'command': import.meta.env.VITE_COHERE_API_KEY,
+      'j2-ultra': import.meta.env.VITE_AI21_API_KEY,
+    };
+
+    Object.entries(envKeys).forEach(([modelId, apiKey]) => {
       if (apiKey) {
-        this.apiKeys.set(model.id, apiKey);
+        this.apiKeys.set(modelId, apiKey);
       }
     });
   }
 
   private initializeClients() {
-    const openaiKey = this.apiKeys.get('gpt-4');
+    const openaiKey = import.meta.env.VITE_OPENAI_API_KEY;
     if (openaiKey) {
       this.openai = new OpenAI({ apiKey: openaiKey });
     }
 
-    const anthropicKey = this.apiKeys.get('claude-3');
+    const anthropicKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
     if (anthropicKey) {
       this.anthropic = new Anthropic({ apiKey: anthropicKey });
     }
 
-    const cohereKey = this.apiKeys.get('command');
+    const cohereKey = import.meta.env.VITE_COHERE_API_KEY;
     if (cohereKey) {
       this.cohere = new CohereClient({ token: cohereKey });
     }
@@ -53,24 +59,31 @@ export class AIService {
   public setActiveModel(modelId: string) {
     const model = availableModels.find(m => m.id === modelId);
     if (!model) throw new Error('Modelo não encontrado');
-    if (!this.apiKeys.has(model.id)) throw new Error('API key não configurada');
+    if (!this.apiKeys.has(model.id)) {
+      throw new Error('API key não configurada. Por favor, configure a chave de API nas configurações.');
+    }
     this.activeModel = model;
   }
 
   public async analyze(text: string): Promise<AIAnalysisResult> {
     if (!this.activeModel) throw new Error('Nenhum modelo selecionado');
 
-    switch (this.activeModel.provider) {
-      case 'OpenAI':
-        return this.analyzeWithOpenAI(text);
-      case 'Anthropic':
-        return this.analyzeWithAnthropic(text);
-      case 'Cohere':
-        return this.analyzeWithCohere(text);
-      case 'AI21':
-        return this.analyzeWithAI21(text);
-      default:
-        throw new Error('Provedor não suportado');
+    try {
+      switch (this.activeModel.provider) {
+        case 'OpenAI':
+          return this.analyzeWithOpenAI(text);
+        case 'Anthropic':
+          return this.analyzeWithAnthropic(text);
+        case 'Cohere':
+          return this.analyzeWithCohere(text);
+        case 'AI21':
+          return this.analyzeWithAI21(text);
+        default:
+          throw new Error('Provedor não suportado');
+      }
+    } catch (error) {
+      console.error('Erro na análise:', error);
+      throw new Error('Erro ao analisar o documento. Por favor, tente novamente.');
     }
   }
 
@@ -91,11 +104,11 @@ export class AIService {
       ]
     });
 
-    // Processar resposta
     return {
       text,
       fields: [],
-      documentType: 'contract'
+      documentType: 'contract',
+      metadata: response.choices[0].message
     };
   }
 
@@ -111,11 +124,11 @@ export class AIService {
       }]
     });
 
-    // Processar resposta
     return {
       text,
       fields: [],
-      documentType: 'contract'
+      documentType: 'contract',
+      metadata: response
     };
   }
 
@@ -128,11 +141,11 @@ export class AIService {
       maxTokens: 1024
     });
 
-    // Processar resposta
     return {
       text,
       fields: [],
-      documentType: 'contract'
+      documentType: 'contract',
+      metadata: response
     };
   }
 
@@ -154,11 +167,11 @@ export class AIService {
       }
     );
 
-    // Processar resposta
     return {
       text,
       fields: [],
-      documentType: 'contract'
+      documentType: 'contract',
+      metadata: response.data
     };
   }
 }
