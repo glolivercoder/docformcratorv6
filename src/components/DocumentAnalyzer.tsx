@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
@@ -7,7 +7,6 @@ import { Camera, Loader2 } from 'lucide-react';
 import { useToast } from './ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { useDropzone } from 'react-dropzone';
 import { Alert, AlertDescription } from './ui/alert';
 import { OcrService } from '@/services/OcrService';
 
@@ -39,6 +38,7 @@ export default function DocumentAnalyzer() {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     return () => {
@@ -47,8 +47,8 @@ export default function DocumentAnalyzer() {
     };
   }, []);
 
-  const onDrop = React.useCallback(async (acceptedFiles: File[]) => {
-    const file = acceptedFiles[0];
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
     if (file) {
       try {
         setError(null);
@@ -76,15 +76,7 @@ export default function DocumentAnalyzer() {
         setIsProcessing(false);
       }
     }
-  }, []);
-
-  const { getRootProps, getInputProps } = useDropzone({
-    onDrop,
-    accept: {
-      'image/*': ['.jpeg', '.jpg', '.png']
-    },
-    disabled: isProcessing
-  });
+  };
 
   const processOcrData = async (file: File) => {
     try {
@@ -215,28 +207,38 @@ export default function DocumentAnalyzer() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-6">
-            <div 
-              {...getRootProps()} 
-              className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer ${
-                isProcessing ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-            >
-              <input {...getInputProps()} />
-              {isProcessing ? (
-                <div className="flex flex-col items-center">
-                  <Loader2 className="h-12 w-12 animate-spin text-gray-400" />
-                  <p className="mt-2">Processando imagem...</p>
-                </div>
-              ) : (
-                <>
-                  <Camera className="mx-auto h-12 w-12 text-gray-400" />
-                  <div className="mt-4">
-                    <p>Arraste uma imagem ou clique para selecionar</p>
-                    <p className="text-sm text-gray-500">Suporta JPG, JPEG, PNG</p>
-                  </div>
-                </>
-              )}
+            <div className="flex items-center gap-4">
+              <Input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              <Button
+                onClick={() => fileInputRef.current?.click()}
+                variant="outline"
+                className="w-full"
+              >
+                <Camera className="mr-2 h-4 w-4" />
+                Selecionar Imagem
+              </Button>
             </div>
+
+            {isProcessing ? (
+              <div className="flex flex-col items-center">
+                <Loader2 className="h-12 w-12 animate-spin text-gray-400" />
+                <p className="mt-2">Processando imagem...</p>
+              </div>
+            ) : (
+              <>
+                <Camera className="mx-auto h-12 w-12 text-gray-400" />
+                <div className="mt-4">
+                  <p>Arraste uma imagem ou clique para selecionar</p>
+                  <p className="text-sm text-gray-500">Suporta JPG, JPEG, PNG</p>
+                </div>
+              </>
+            )}
 
             {error && (
               <Alert variant="destructive">
