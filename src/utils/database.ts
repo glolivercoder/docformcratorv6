@@ -9,6 +9,36 @@ export interface Template {
   createdAt: Date;
 }
 
+export interface UserDocument {
+  id?: number;
+  userId: number;
+  documentType: string;
+  documentNumber: string;
+  documentFields: Record<string, string>;
+  issuingBody: string;
+  issueDate: string;
+  birthDate: string;
+  birthPlace: string;
+  filiation: string;
+  fullName: string;
+  cpf: string;
+  profession: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface User {
+  id?: number;
+  name: string;
+  cpf: string;
+  email?: string;
+  phone?: string;
+  userType: string;
+  documents: UserDocument[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface RealEstateContract {
   id?: number;
   buildingName: string;
@@ -49,52 +79,33 @@ export interface RealEstateContract {
   };
   bank: {
     name: string;
-    address: string;
-    cnpj: string;
+    agency: string;
+    account: string;
   };
-  property: {
-    address: string;
-    registryNumber: string;
-    area: number;
-    parkingSpaces: number;
-    privateArea: number;
-    commonArea: number;
-    totalArea: number;
-    idealFraction: string;
-  };
-  payment: {
-    totalPrice: number;
-    downPayment: number;
-    fgtsValue: number;
-    installments: number;
-  };
-  date: string;
-  witnesses: {
-    witness1: {
-      name: string;
-      cpf: string;
-    };
-    witness2: {
-      name: string;
-      cpf: string;
-    };
-  };
+  price: number;
+  date: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class DocumentDatabase extends Dexie {
   templates!: Table<Template>;
   contracts!: Table<RealEstateContract>;
+  users!: Table<User>;
+  userDocuments!: Table<UserDocument>;
 
   constructor() {
     super('DocumentDB');
-    this.version(1).stores({
+    this.version(2).stores({
       templates: '++id, name, type, createdAt',
-      contracts: '++id, buildingName, date'
+      contracts: '++id, buildingName, date',
+      users: '++id, cpf, name, userType, createdAt',
+      userDocuments: '++id, userId, documentType, documentNumber, createdAt'
     });
   }
 }
 
-export class DatabaseService {
+class DatabaseService {
   private db: DocumentDatabase;
 
   constructor() {
@@ -107,31 +118,13 @@ export class DatabaseService {
       await this.db.open();
       console.log("Database opened successfully");
     } catch (error) {
-      console.error("Error initializing database:", error);
-      throw error;
+      console.error("Error opening database:", error);
     }
   }
 
+  // Template methods
   async saveTemplate(template: Omit<Template, 'id'>) {
-    try {
-      const id = await this.db.templates.add(template);
-      console.log("Template saved successfully with id:", id);
-      return id;
-    } catch (error) {
-      console.error("Error saving template:", error);
-      throw error;
-    }
-  }
-
-  async saveContract(contract: Omit<RealEstateContract, 'id'>) {
-    try {
-      const id = await this.db.contracts.add(contract);
-      console.log("Contract saved successfully with id:", id);
-      return id;
-    } catch (error) {
-      console.error("Error saving contract:", error);
-      throw error;
-    }
+    return await this.db.templates.add(template);
   }
 
   async getTemplate(id: number) {
@@ -143,7 +136,39 @@ export class DatabaseService {
   }
 
   async deleteTemplate(id: string) {
-    return await this.db.templates.delete(Number(id));
+    return await this.db.templates.delete(id);
+  }
+
+  // Contract methods
+  async saveContract(contract: Omit<RealEstateContract, 'id'>) {
+    return await this.db.contracts.add(contract);
+  }
+
+  // User methods
+  async saveUser(user: Omit<User, 'id'>) {
+    return await this.db.users.add(user);
+  }
+
+  async getUserByCPF(cpf: string) {
+    return await this.db.users.where('cpf').equals(cpf).first();
+  }
+
+  async saveUserDocument(document: Omit<UserDocument, 'id'>) {
+    const docId = await this.db.userDocuments.add(document);
+    return docId;
+  }
+
+  async getUserDocuments(userId: number) {
+    return await this.db.userDocuments.where('userId').equals(userId).toArray();
+  }
+
+  async searchUsers(query: string) {
+    return await this.db.users
+      .where('name')
+      .startsWithIgnoreCase(query)
+      .or('cpf')
+      .equals(query)
+      .toArray();
   }
 }
 

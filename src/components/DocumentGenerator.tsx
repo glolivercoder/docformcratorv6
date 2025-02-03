@@ -15,18 +15,19 @@ import DocumentForm from "./DocumentForm";
 import { ApiKeyManager } from "./ApiKeyManager";
 import { DocumentCategory, DocumentType } from "@/types/documents";
 import { useToast } from "@/components/ui/use-toast";
-import Tesseract from 'tesseract.js';
-import { processImageWithGemini } from "@/utils/geminiVision";
-import { OCRSelectionDialog } from "./OCRSelectionDialog";
+import { OCRFieldSelectDialog } from "./dialogs/OCRFieldSelectDialog";
+import { OCRSelectionArea } from "./OCRSelectionArea";
+import { OcrService } from "@/services/OcrService";
 
 function DocumentGenerator() {
   const [selectedCategory, setSelectedCategory] = useState<DocumentCategory>();
   const [selectedType, setSelectedType] = useState<DocumentType>();
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
-  const [ocrMethod, setOcrMethod] = useState<'tesseract' | 'gemini'>('tesseract');
-  const [showOCRDialog, setShowOCRDialog] = useState(false);
-  const [ocrData, setOCRData] = useState<Record<string, any>>({});
+  const [showFieldSelect, setShowFieldSelect] = useState(false);
+  const [showOCRSelection, setShowOCRSelection] = useState(false);
+  const [capturedImage, setCapturedImage] = useState<string>('');
+  const [selectedField, setSelectedField] = useState('');
   const [currentFormData, setCurrentFormData] = useState<Record<string, any>>({});
 
   const categories = [
@@ -42,258 +43,240 @@ function DocumentGenerator() {
         return [
           { value: DocumentType.LEASE_CONTRACT, label: "Contrato de Locação" },
           { value: DocumentType.SALE_CONTRACT, label: "Contrato de Venda" },
-          {
-            value: DocumentType.MANAGEMENT_CONTRACT,
-            label: "Contrato de Administração",
-          },
+          { value: DocumentType.MANAGEMENT_CONTRACT, label: "Contrato de Administração" },
         ];
       case DocumentCategory.LETTER:
         return [
-          {
-            value: DocumentType.GUARANTEE_LETTER,
-            label: "Carta de Fiança",
-          },
-          {
-            value: DocumentType.RENT_ADJUSTMENT_LETTER,
-            label: "Carta de Reajuste",
-          },
+          { value: DocumentType.GUARANTEE_LETTER, label: "Carta de Recomendação" },
+          { value: DocumentType.RESIGNATION_LETTER, label: "Carta de Demissão" },
         ];
       default:
         return [];
     }
   };
 
-  const handleNewCategory = () => {
-    console.log("New category button clicked");
-    toast({
-      title: "Em desenvolvimento",
-      description: "A criação de novas categorias estará disponível em breve.",
-    });
-  };
-
-  const handleNewTemplate = () => {
-    console.log("New template button clicked");
-    toast({
-      title: "Em desenvolvimento",
-      description: "A criação de novos modelos estará disponível em breve.",
-    });
-  };
-
-  const handleImageCapture = async (file: File) => {
-    try {
-      console.log("Starting OCR processing with method:", ocrMethod);
-      toast({
-        title: "Processando documento",
-        description: "Aguarde enquanto extraímos as informações...",
-      });
-
-      let extractedData;
-
-      if (ocrMethod === 'gemini') {
-        extractedData = await processImageWithGemini(file);
-      } else {
-        const result = await Tesseract.recognize(file, 'por', {
-          logger: m => console.log('Tesseract progress:', m),
-          langPath: 'https://tessdata.projectnaptha.com/4.0.0',
-          errorHandler: (err: any) => {
-            console.error('Tesseract error:', err);
-          }
-        });
-
-        console.log("Raw OCR Result:", result.data.text);
-        
-        const cleanText = result.data.text.replace(/\s+/g, ' ').trim();
-        console.log("Cleaned text:", cleanText);
-
-        extractedData = {
-          nomeCompleto: cleanText.match(/nome:?\s*([^:\n]+?)(?:\s*cpf|\s*rg|\s*$)/i)?.[1]?.trim(),
-          cpf: cleanText.match(/cpf:?\s*(\d{3}\.?\d{3}\.?\d{3}-?\d{2})/i)?.[1]?.trim(),
-          rg: cleanText.match(/rg:?\s*(\d{1,2}\.?\d{3}\.?\d{3}(?:-|\/|\s+)?\d{1})/i)?.[1]?.trim(),
-          orgaoExpedidor: cleanText.match(/(?:orgao|órgão)\s*emissor:?\s*([^:\n]+?)(?:\s*cpf|\s*rg|\s*$)/i)?.[1]?.trim(),
-          filiacao: cleanText.match(/filia[çc][aã]o:?\s*([^:\n]+?)(?:\s*cpf|\s*rg|\s*$)/i)?.[1]?.trim(),
-          dataEmissao: cleanText.match(/(?:data\s+de\s+)?emiss[aã]o:?\s*(\d{2}\/\d{2}\/\d{4}|\d{2}\.\d{2}\.\d{4})/i)?.[1]?.trim(),
-        };
-      }
-
-      if (!extractedData || Object.values(extractedData).every(v => !v)) {
-        console.error("No data could be extracted from the image");
-        toast({
-          variant: "destructive",
-          title: "Erro na extração",
-          description: "Não foi possível extrair dados da imagem. Tente tirar uma foto com melhor iluminação e foco.",
-        });
-        return;
-      }
-
-      console.log("Final extracted data:", extractedData);
-      setOCRData(extractedData);
-      setShowOCRDialog(true);
-      
-      toast({
-        title: "Dados extraídos com sucesso!",
-        description: "Por favor, confirme se os dados estão corretos.",
-      });
-    } catch (error) {
-      console.error("OCR Error:", error);
-      toast({
-        variant: "destructive",
-        title: "Erro no processamento",
-        description: "Não foi possível extrair os dados do documento. Tente novamente com uma imagem mais clara.",
-      });
-    }
-  };
-
-  const handleOCRSelection = (field: string, value: string) => {
-    console.log("Selected OCR data:", { field, value });
-  };
-
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      handleImageCapture(file);
-    }
-  };
-
-  const captureImage = async () => {
+  const handleCaptureImage = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      console.log("Camera access granted:", stream);
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      await video.play();
+
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d')?.drawImage(video, 0, 0);
       
-      toast({
-        title: "Câmera ativada",
-        description: "Posicione o documento no centro da tela.",
-      });
+      const imageUrl = canvas.toDataURL('image/jpeg');
+      stream.getTracks().forEach(track => track.stop());
+      
+      setShowFieldSelect(true);
+      setCapturedImage(imageUrl);
     } catch (error) {
-      console.error("Camera access error:", error);
+      console.error('Error capturing image:', error);
       toast({
         variant: "destructive",
-        title: "Erro de acesso",
-        description: "Não foi possível acessar a câmera.",
+        title: "Erro ao capturar imagem",
+        description: "Verifique se sua câmera está disponível.",
+      });
+    }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const imageUrl = e.target?.result as string;
+        setCapturedImage(imageUrl);
+        setShowFieldSelect(true);
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Error loading image:', error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao carregar imagem",
+        description: "Não foi possível carregar a imagem selecionada.",
+      });
+    }
+  };
+
+  const handleFieldSelect = async (field: string) => {
+    setSelectedField(field);
+    setShowFieldSelect(false);
+    setShowOCRSelection(true); // Mostrar seleção OCR imediatamente
+
+    toast({
+      title: "Processando documento...",
+      description: "Aguarde enquanto fazemos o OCR automático",
+    });
+
+    try {
+      const response = await fetch(capturedImage);
+      const blob = await response.blob();
+      const file = new File([blob], 'captured_image.png', { type: 'image/png' });
+      
+      const ocrService = OcrService.getInstance();
+      const result = await ocrService.extractText(file);
+      
+      if (result.text) {
+        toast({
+          title: "OCR Automático",
+          description: "Texto extraído! Selecione a área para confirmar.",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "OCR falhou",
+          description: "Não foi possível extrair texto automaticamente. Use a seleção manual.",
+        });
+      }
+    } catch (error) {
+      console.error('Erro no OCR:', error);
+      toast({
+        variant: "destructive",
+        title: "Erro no OCR",
+        description: "Ocorreu um erro no processamento. Use a seleção manual.",
       });
     }
   };
 
   return (
-    <div className="space-y-4">
-      <ApiKeyManager />
-      
-      <div className="flex justify-between items-center mb-6">
-        <Button onClick={handleNewTemplate} className="flex items-center gap-2">
-          <Plus className="w-4 h-4" />
-          Novo Modelo de Documento
+    <div className="container mx-auto p-4 space-y-4">
+      <div className="flex justify-between items-center">
+        <Button
+          onClick={() => setSelectedType(undefined)}
+          variant="outline"
+          className="flex items-center gap-2"
+        >
+          <Plus className="w-4 h-4" /> Novo Modelo de Documento
         </Button>
-        <div className="flex gap-2">
-          <Select
-            value={ocrMethod}
-            onValueChange={(value: 'tesseract' | 'gemini') => setOcrMethod(value)}
+
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={handleCaptureImage}
+            variant="outline"
+            className="flex items-center gap-2"
           >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Método OCR" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="tesseract">Tesseract OCR</SelectItem>
-              <SelectItem value="gemini">Google Gemini</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button onClick={captureImage} variant="outline" className="flex items-center gap-2">
-            <Camera className="w-4 h-4" />
-            Capturar
+            <Camera className="w-4 h-4" /> Capturar
           </Button>
+
           <div className="relative">
             <input
               type="file"
               accept="image/*"
-              onChange={handleFileSelect}
-              className="hidden"
-              id="image-upload"
+              onChange={handleFileUpload}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             />
-            <Button
-              variant="outline"
-              className="flex items-center gap-2"
-              onClick={() => document.getElementById("image-upload")?.click()}
-            >
-              <FileUp className="w-4 h-4" />
-              Carregar Imagem
+            <Button variant="outline" className="flex items-center gap-2">
+              <FileUp className="w-4 h-4" /> Carregar Imagem
             </Button>
           </div>
         </div>
       </div>
 
-      <div className="flex items-center space-x-4 mb-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-          <Input
-            placeholder="Buscar documentos..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
+      <div className="flex items-center gap-4">
+        <div className="flex-1">
+          <div className="relative">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar documentos..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8"
+            />
+          </div>
         </div>
-        <Button onClick={handleNewCategory} variant="outline" size="icon">
-          <Plus className="h-4 w-4" />
+        <Button variant="outline">
+          <Plus className="w-4 h-4" />
         </Button>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Categoria
-          </label>
-          <Select onValueChange={(value) => setSelectedCategory(value as DocumentCategory)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione uma categoria" />
-            </SelectTrigger>
-            <SelectContent>
-              <ScrollArea className="h-[200px]">
-                {categories.map((category) => (
-                  <SelectItem key={category.value} value={category.value}>
-                    {category.label}
-                  </SelectItem>
-                ))}
-              </ScrollArea>
-            </SelectContent>
-          </Select>
-        </div>
+        <Select
+          value={selectedCategory?.toString()}
+          onValueChange={(value) => setSelectedCategory(value as DocumentCategory)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Categoria" />
+          </SelectTrigger>
+          <SelectContent>
+            {categories.map((category) => (
+              <SelectItem key={category.value} value={category.value}>
+                {category.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-        {selectedCategory && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Tipo de Documento
-            </label>
-            <Select onValueChange={(value) => setSelectedType(value as DocumentType)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione um tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                <ScrollArea className="h-[200px]">
-                  {getDocumentTypes(selectedCategory).map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
-                </ScrollArea>
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+        <Select
+          value={selectedType?.toString()}
+          onValueChange={(value) => setSelectedType(value as DocumentType)}
+          disabled={!selectedCategory}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Tipo de Documento" />
+          </SelectTrigger>
+          <SelectContent>
+            {selectedCategory &&
+              getDocumentTypes(selectedCategory).map((type) => (
+                <SelectItem key={type.value} value={type.value}>
+                  {type.label}
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {selectedType && (
-        <DocumentForm
-          documentType={selectedType}
-          onFormDataChange={setCurrentFormData}
-        />
+        <Card className="p-6">
+          <DocumentForm
+            documentType={selectedType}
+            onFormDataChange={setCurrentFormData}
+          />
+        </Card>
       )}
 
-      <OCRSelectionDialog
-        open={showOCRDialog}
-        onOpenChange={setShowOCRDialog}
-        ocrData={ocrData}
-        formData={currentFormData}
-        onSelection={handleOCRSelection}
+      <OCRFieldSelectDialog
+        open={showFieldSelect}
+        onOpenChange={setShowFieldSelect}
+        documentType={selectedType || DocumentType.LEASE_CONTRACT}
+        onFieldSelect={handleFieldSelect}
       />
+
+      {showOCRSelection && (
+        <OCRSelectionArea
+          imageUrl={capturedImage}
+          open={showOCRSelection}
+          onOpenChange={setShowOCRSelection}
+          onSelect={(text, field) => {
+            const formRef = document.querySelector('form');
+            if (formRef) {
+              const input = formRef.querySelector(`input[name="${field}"]`) as HTMLInputElement;
+              if (input) {
+                input.value = text;
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+              }
+            }
+            setShowOCRSelection(false);
+          }}
+          availableFields={[
+            { label: 'Nome Completo', value: `${selectedField}.nomeCompleto` },
+            { label: 'CPF', value: `${selectedField}.cpf` },
+            { label: 'RG/Documento', value: `${selectedField}.numeroDocumento` },
+            { label: 'Órgão Expedidor', value: `${selectedField}.orgaoExpedidor` },
+            { label: 'Data de Expedição', value: `${selectedField}.dataExpedicao` },
+            { label: 'Data de Nascimento', value: `${selectedField}.dataNascimento` },
+            { label: 'Naturalidade', value: `${selectedField}.naturalidade` },
+            { label: 'Filiação', value: `${selectedField}.filiacao` },
+          ]}
+        />
+      )}
     </div>
   );
-};
+}
 
 export default DocumentGenerator;

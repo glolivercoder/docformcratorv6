@@ -6,10 +6,14 @@ import { Label } from "@/components/ui/label";
 import { DocumentType } from "@/types/documents";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
-import { FileDown, Image, Printer } from "lucide-react";
+import { FileDown, Image, Printer, Camera } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { documentTypes, formatarDataPorExtenso } from "@/utils/documentTypes";
 import { DocumentSection } from "./form/DocumentSection";
+import { OCRFieldSelectDialog } from "./dialogs/OCRFieldSelectDialog";
+import { OCRSelectionArea } from "./OCRSelectionArea";
+import { databaseService } from "@/utils/database";
+import cep from 'cep-promise';
 import {
   Accordion,
   AccordionContent,
@@ -26,6 +30,10 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
   const [formData, setFormData] = useState<any>({});
   const { toast } = useToast();
   const [useSystemDate, setUseSystemDate] = useState(false);
+  const [showFieldSelect, setShowFieldSelect] = useState(false);
+  const [showOCRSelection, setShowOCRSelection] = useState(false);
+  const [capturedImage, setCapturedImage] = useState<string>('');
+  const [selectedField, setSelectedField] = useState('');
 
   useEffect(() => {
     const docType = documentType === DocumentType.LEASE_CONTRACT ? 'contratoLocacao' 
@@ -43,7 +51,48 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
     }
   }, [useSystemDate]);
 
-  const handleInputChange = (field: string, value: any, parent: string | null = null) => {
+  const handleInputChange = async (field: string, value: any, parent: string | null = null) => {
+    // Se o campo for CEP, buscar endereço
+    if (field === 'cep' && value.length === 8) {
+      try {
+        const address = await cep(value);
+        const newValue = {
+          cep: value,
+          endereco: `${address.street}, ${address.neighborhood}`,
+          cidade: address.city,
+          estado: address.state,
+        };
+        
+        setFormData(prev => {
+          const newData = parent ? {
+            ...prev,
+            [parent]: {
+              ...prev[parent],
+              ...newValue
+            }
+          } : {
+            ...prev,
+            ...newValue
+          };
+          
+          onFormDataChange?.(newData);
+          return newData;
+        });
+
+        toast({
+          title: "Endereço encontrado",
+          description: "Os campos foram preenchidos automaticamente.",
+        });
+      } catch (error) {
+        toast({
+          variant: "destructive",
+          title: "Erro ao buscar CEP",
+          description: "Verifique se o CEP está correto.",
+        });
+      }
+      return;
+    }
+
     setFormData(prev => {
       const newData = parent ? {
         ...prev,
@@ -59,6 +108,83 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
       onFormDataChange?.(newData);
       return newData;
     });
+  };
+
+  const handleCaptureImage = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      await video.play();
+
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d')?.drawImage(video, 0, 0);
+      
+      const imageUrl = canvas.toDataURL('image/jpeg');
+      stream.getTracks().forEach(track => track.stop());
+      
+      setCapturedImage(imageUrl);
+      setShowFieldSelect(true);
+    } catch (error) {
+      console.error('Error capturing image:', error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao capturar imagem",
+        description: "Verifique se sua câmera está disponível.",
+      });
+    }
+  };
+
+  const handleFieldSelect = async (field: string) => {
+    setSelectedField(field);
+    setShowFieldSelect(false);
+    setShowOCRSelection(true);
+  };
+
+  const handleOCRResult = async (text: string, field: string) => {
+    const fieldParts = field.split('.');
+    const parent = fieldParts.length > 1 ? fieldParts[0] : null;
+    const actualField = fieldParts.length > 1 ? fieldParts[1] : field;
+
+    handleInputChange(actualField, text, parent);
+
+    // Salvar no banco de dados
+    try {
+      const userDocument = {
+        userId: 1, // Você precisará implementar um sistema de gestão de usuários
+        documentType: formData[parent]?.tipoDocumento || '',
+        documentNumber: formData[parent]?.numeroDocumento || '',
+        documentFields: {
+          [actualField]: text
+        },
+        issuingBody: formData[parent]?.orgaoExpedidor || '',
+        issueDate: formData[parent]?.dataExpedicao || '',
+        birthDate: formData[parent]?.dataNascimento || '',
+        birthPlace: formData[parent]?.naturalidade || '',
+        filiation: formData[parent]?.filiacao || '',
+        fullName: formData[parent]?.nomeCompleto || '',
+        cpf: formData[parent]?.cpf || '',
+        profession: formData[parent]?.profissao || '',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      await databaseService.saveUserDocument(userDocument);
+      
+      toast({
+        title: "Documento salvo",
+        description: "As informações foram salvas no banco de dados.",
+      });
+    } catch (error) {
+      console.error('Error saving document:', error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao salvar documento",
+        description: "Não foi possível salvar as informações no banco de dados.",
+      });
+    }
   };
 
   const generatePDF = async () => {
@@ -202,6 +328,32 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
           </div>
         </div>
       </Card>
+
+      <OCRFieldSelectDialog
+        open={showFieldSelect}
+        onOpenChange={setShowFieldSelect}
+        documentType={documentType}
+        onFieldSelect={handleFieldSelect}
+      />
+
+      {showOCRSelection && (
+        <OCRSelectionArea
+          imageUrl={capturedImage}
+          open={showOCRSelection}
+          onOpenChange={setShowOCRSelection}
+          onSelect={handleOCRResult}
+          availableFields={[
+            { label: 'Nome Completo', value: `${selectedField}.nomeCompleto` },
+            { label: 'CPF', value: `${selectedField}.cpf` },
+            { label: 'RG/Documento', value: `${selectedField}.numeroDocumento` },
+            { label: 'Órgão Expedidor', value: `${selectedField}.orgaoExpedidor` },
+            { label: 'Data de Expedição', value: `${selectedField}.dataExpedicao` },
+            { label: 'Data de Nascimento', value: `${selectedField}.dataNascimento` },
+            { label: 'Naturalidade', value: `${selectedField}.naturalidade` },
+            { label: 'Filiação', value: `${selectedField}.filiacao` },
+          ]}
+        />
+      )}
     </div>
   );
 };
