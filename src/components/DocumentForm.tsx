@@ -317,6 +317,18 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
                   {renderConjugeSection('locatario', true, incluirConjugeLocatario, setIncluirConjugeLocatario)}
                 </AccordionContent>
               </AccordionItem>
+
+              <AccordionItem value="imovel">
+                <AccordionTrigger>Informações do Imóvel</AccordionTrigger>
+                <AccordionContent>
+                  <DocumentSection
+                    fields={formData.imovel}
+                    parent="imovel"
+                    onInputChange={handleInputChange}
+                    useSystemDate={useSystemDate}
+                  />
+                </AccordionContent>
+              </AccordionItem>
             </>
           )}
 
@@ -345,6 +357,18 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
                     useSystemDate={useSystemDate}
                   />
                   {renderConjugeSection('comprador')}
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="imovel">
+                <AccordionTrigger>Informações do Imóvel</AccordionTrigger>
+                <AccordionContent>
+                  <DocumentSection
+                    fields={formData.imovel}
+                    parent="imovel"
+                    onInputChange={handleInputChange}
+                    useSystemDate={useSystemDate}
+                  />
                 </AccordionContent>
               </AccordionItem>
             </>
