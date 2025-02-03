@@ -34,6 +34,8 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
   const [showOCRSelection, setShowOCRSelection] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string>('');
   const [selectedField, setSelectedField] = useState('');
+  const [incluirConjugeLocador, setIncluirConjugeLocador] = useState(true);
+  const [incluirConjugeLocatario, setIncluirConjugeLocatario] = useState(false);
 
   useEffect(() => {
     const docType = documentType === DocumentType.LEASE_CONTRACT ? 'contratoLocacao' 
@@ -236,49 +238,117 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
     }
   };
 
-  const renderAccordionSections = () => {
-    return Object.entries(formData).map(([section, data]: [string, any]) => {
-      if (typeof data !== 'object' || Array.isArray(data)) return null;
+  const renderConjugeSection = (parentField: string, isOptional: boolean = false, includeConjuge: boolean = true, setIncludeConjuge?: (value: boolean) => void) => {
+    const conjugeField = `conjuge${parentField.charAt(0).toUpperCase() + parentField.slice(1)}`;
+    
+    if (!formData[parentField]?.[conjugeField]) return null;
 
-      return (
-        <AccordionItem value={section} key={section}>
-          <AccordionTrigger className="text-lg font-semibold">
-            {section.charAt(0).toUpperCase() + section.slice(1)}
-          </AccordionTrigger>
-          <AccordionContent>
+    return (
+      <AccordionItem value={`conjuge-${parentField}`}>
+        <AccordionTrigger className="text-left">
+          Informações do Cônjuge
+          {isOptional && (
+            <div className="flex items-center space-x-2 ml-4" onClick={(e) => e.stopPropagation()}>
+              <Checkbox
+                id={`incluir-conjuge-${parentField}`}
+                checked={includeConjuge}
+                onCheckedChange={(checked) => setIncludeConjuge?.(checked as boolean)}
+              />
+              <label
+                htmlFor={`incluir-conjuge-${parentField}`}
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Incluir Cônjuge
+              </label>
+            </div>
+          )}
+        </AccordionTrigger>
+        <AccordionContent>
+          {(!isOptional || includeConjuge) && (
             <DocumentSection
-              fields={data}
-              parent={section}
+              fields={formData[parentField][conjugeField]}
+              parent={`${parentField}.${conjugeField}`}
               onInputChange={handleInputChange}
               useSystemDate={useSystemDate}
             />
-          </AccordionContent>
-        </AccordionItem>
-      );
-    });
+          )}
+        </AccordionContent>
+      </AccordionItem>
+    );
   };
 
   return (
     <div className="space-y-4">
-      <Card className="p-6">
-        <h2 className="text-xl font-semibold mb-4">Formulário do Documento</h2>
-        
+      <div className="space-y-4">
         <div className="flex items-center space-x-2 mb-4">
           <Checkbox
             id="useSystemDate"
             checked={useSystemDate}
-            onCheckedChange={(checked: boolean) => {
-              setUseSystemDate(checked);
-              handleInputChange('usarDataSistema', checked, null);
-            }}
+            onCheckedChange={(checked) => setUseSystemDate(checked as boolean)}
           />
-          <Label htmlFor="useSystemDate">
-            Usar data atual do sistema
-          </Label>
+          <Label htmlFor="useSystemDate">Usar data do sistema</Label>
         </div>
 
-        <Accordion type="single" collapsible className="mb-4">
-          {renderAccordionSections()}
+        <Accordion type="multiple" className="w-full space-y-4">
+          {documentType === DocumentType.LEASE_CONTRACT && (
+            <>
+              <AccordionItem value="locador">
+                <AccordionTrigger>Informações do Locador</AccordionTrigger>
+                <AccordionContent>
+                  <DocumentSection
+                    fields={formData.locador}
+                    parent="locador"
+                    onInputChange={handleInputChange}
+                    useSystemDate={useSystemDate}
+                  />
+                  {renderConjugeSection('locador', true, incluirConjugeLocador, setIncluirConjugeLocador)}
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="locatario">
+                <AccordionTrigger>Informações do Locatário</AccordionTrigger>
+                <AccordionContent>
+                  <DocumentSection
+                    fields={formData.locatario}
+                    parent="locatario"
+                    onInputChange={handleInputChange}
+                    useSystemDate={useSystemDate}
+                  />
+                  {renderConjugeSection('locatario', true, incluirConjugeLocatario, setIncluirConjugeLocatario)}
+                </AccordionContent>
+              </AccordionItem>
+            </>
+          )}
+
+          {documentType === DocumentType.SALE_CONTRACT && (
+            <>
+              <AccordionItem value="vendedor">
+                <AccordionTrigger>Informações do Vendedor</AccordionTrigger>
+                <AccordionContent>
+                  <DocumentSection
+                    fields={formData.vendedor}
+                    parent="vendedor"
+                    onInputChange={handleInputChange}
+                    useSystemDate={useSystemDate}
+                  />
+                  {renderConjugeSection('vendedor')}
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="comprador">
+                <AccordionTrigger>Informações do Comprador</AccordionTrigger>
+                <AccordionContent>
+                  <DocumentSection
+                    fields={formData.comprador}
+                    parent="comprador"
+                    onInputChange={handleInputChange}
+                    useSystemDate={useSystemDate}
+                  />
+                  {renderConjugeSection('comprador')}
+                </AccordionContent>
+              </AccordionItem>
+            </>
+          )}
         </Accordion>
 
         <div className="flex gap-2">
@@ -298,62 +368,62 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
             Imprimir
           </Button>
         </div>
-      </Card>
 
-      <Card className="p-6" id="document-content">
-        <div className="prose max-w-none">
-          <h1 className="text-2xl font-bold text-center mb-6">
-            {documentType === DocumentType.LEASE_CONTRACT
-              ? "Contrato de Locação"
-              : documentType === DocumentType.SALE_CONTRACT
-              ? "Contrato de Venda"
-              : "Documento"}
-          </h1>
-          
-          <div className="space-y-4">
-            {Object.entries(formData).map(([section, data]: [string, any]) => (
-              <div key={section}>
-                <h2 className="text-xl font-semibold">
-                  {section.charAt(0).toUpperCase() + section.slice(1)}
-                </h2>
-                {Object.entries(data).map(([field, value]: [string, any]) => (
-                  typeof value !== 'object' && (
-                    <p key={field} className="mb-2">
-                      <strong>{field.charAt(0).toUpperCase() + field.slice(1)}:</strong> {value}
-                    </p>
-                  )
-                ))}
-              </div>
-            ))}
+        <Card className="p-6" id="document-content">
+          <div className="prose max-w-none">
+            <h1 className="text-2xl font-bold text-center mb-6">
+              {documentType === DocumentType.LEASE_CONTRACT
+                ? "Contrato de Locação"
+                : documentType === DocumentType.SALE_CONTRACT
+                ? "Contrato de Venda"
+                : "Documento"}
+            </h1>
+            
+            <div className="space-y-4">
+              {Object.entries(formData).map(([section, data]: [string, any]) => (
+                <div key={section}>
+                  <h2 className="text-xl font-semibold">
+                    {section.charAt(0).toUpperCase() + section.slice(1)}
+                  </h2>
+                  {Object.entries(data).map(([field, value]: [string, any]) => (
+                    typeof value !== 'object' && (
+                      <p key={field} className="mb-2">
+                        <strong>{field.charAt(0).toUpperCase() + field.slice(1)}:</strong> {value}
+                      </p>
+                    )
+                  ))}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      </Card>
+        </Card>
 
-      <OCRFieldSelectDialog
-        open={showFieldSelect}
-        onOpenChange={setShowFieldSelect}
-        documentType={documentType}
-        onFieldSelect={handleFieldSelect}
-      />
-
-      {showOCRSelection && (
-        <OCRSelectionArea
-          imageUrl={capturedImage}
-          open={showOCRSelection}
-          onOpenChange={setShowOCRSelection}
-          onSelect={handleOCRResult}
-          availableFields={[
-            { label: 'Nome Completo', value: `${selectedField}.nomeCompleto` },
-            { label: 'CPF', value: `${selectedField}.cpf` },
-            { label: 'RG/Documento', value: `${selectedField}.numeroDocumento` },
-            { label: 'Órgão Expedidor', value: `${selectedField}.orgaoExpedidor` },
-            { label: 'Data de Expedição', value: `${selectedField}.dataExpedicao` },
-            { label: 'Data de Nascimento', value: `${selectedField}.dataNascimento` },
-            { label: 'Naturalidade', value: `${selectedField}.naturalidade` },
-            { label: 'Filiação', value: `${selectedField}.filiacao` },
-          ]}
+        <OCRFieldSelectDialog
+          open={showFieldSelect}
+          onOpenChange={setShowFieldSelect}
+          documentType={documentType}
+          onFieldSelect={handleFieldSelect}
         />
-      )}
+
+        {showOCRSelection && (
+          <OCRSelectionArea
+            imageUrl={capturedImage}
+            open={showOCRSelection}
+            onOpenChange={setShowOCRSelection}
+            onSelect={handleOCRResult}
+            availableFields={[
+              { label: 'Nome Completo', value: `${selectedField}.nomeCompleto` },
+              { label: 'CPF', value: `${selectedField}.cpf` },
+              { label: 'RG/Documento', value: `${selectedField}.numeroDocumento` },
+              { label: 'Órgão Expedidor', value: `${selectedField}.orgaoExpedidor` },
+              { label: 'Data de Expedição', value: `${selectedField}.dataExpedicao` },
+              { label: 'Data de Nascimento', value: `${selectedField}.dataNascimento` },
+              { label: 'Naturalidade', value: `${selectedField}.naturalidade` },
+              { label: 'Filiação', value: `${selectedField}.filiacao` },
+            ]}
+          />
+        )}
+      </div>
     </div>
   );
 };

@@ -30,12 +30,18 @@ export const DocumentSection = ({ fields, parent, onInputChange, useSystemDate }
 
   const renderField = (fieldName: string, value: any) => {
     if (fieldName === 'usarDataSistema') return null;
+    if (typeof value === 'object') return null;
+
+    const displayName = fieldName
+      .replace(/([A-Z])/g, ' $1')
+      .replace(/^./, str => str.toUpperCase())
+      .trim();
 
     if (fieldName === 'tipoDocumento') {
       return (
         <div key={fieldName} className="mb-4">
           <Label htmlFor={`${parent}-${fieldName}`}>
-            Tipo de Documento
+            {displayName}
           </Label>
           <Select
             value={value}
@@ -61,7 +67,7 @@ export const DocumentSection = ({ fields, parent, onInputChange, useSystemDate }
     return (
       <div key={fieldName} className="mb-4">
         <Label htmlFor={`${parent}-${fieldName}`}>
-          {fieldName.charAt(0).toUpperCase() + fieldName.slice(1)}
+          {displayName}
         </Label>
         <Input
           id={`${parent}-${fieldName}`}
