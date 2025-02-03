@@ -11,11 +11,21 @@ export const formatarDataPorExtenso = (data: Date): string => {
   return `${dia} de ${mes} de ${ano}`;
 };
 
-export const pessoaFields = {
-  nome: '',
-  profissao: '',
-  rg: '',
+export const documentoIdentificacao = {
+  tipoDocumento: '',
+  numeroDocumento: '',
+  dataExpedicao: '',
+  naturalidade: '',
+  orgaoExpedidor: '',
+  dataNascimento: '',
+  filiacao: '',
+  nomeCompleto: '',
   cpf: '',
+  profissao: ''
+};
+
+export const pessoaFields = {
+  ...documentoIdentificacao,
   endereco: '',
   telefone: '',
   whatsapp: ''
@@ -62,6 +72,7 @@ export const documentTypes = {
       },
       imovel: {
         endereco: '',
+        cep: '',
         valor: '',
         prazo: '',
         dataInicio: '',
@@ -89,6 +100,7 @@ export const documentTypes = {
       },
       imovel: {
         endereco: '',
+        cep: '',
         matricula: '',
         valor: '',
         valorPorExtenso: '',
@@ -102,60 +114,6 @@ export const documentTypes = {
         { ...pessoaFields },
         { ...pessoaFields }
       ],
-      local: '',
-      dataPorExtenso: '',
-      usarDataSistema: false
-    }
-  },
-  peticaoInicial: {
-    title: 'Petição Inicial',
-    fields: {
-      autor: {
-        ...pessoaFields
-      },
-      reu: {
-        ...pessoaFields
-      },
-      processo: {
-        vara: '',
-        comarca: '',
-        assunto: '',
-        valorCausa: '',
-        valorCausaPorExtenso: '',
-        fatos: '',
-        fundamentacao: '',
-        pedidos: '',
-        provas: ''
-      },
-      advogado: {
-        ...pessoaFields,
-        oab: '',
-        estadoOAB: ''
-      },
-      local: '',
-      dataPorExtenso: '',
-      usarDataSistema: false
-    }
-  },
-  procuracao: {
-    title: 'Procuração',
-    fields: {
-      outorgante: {
-        ...pessoaFields,
-        estadoCivil: '',
-        nacionalidade: ''
-      },
-      outorgado: {
-        ...pessoaFields,
-        estadoCivil: '',
-        nacionalidade: ''
-      },
-      poderes: {
-        poderesEspecificos: '',
-        finalidade: '',
-        prazoValidade: '',
-        substabelecimento: ''
-      },
       local: '',
       dataPorExtenso: '',
       usarDataSistema: false

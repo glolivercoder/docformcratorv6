@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Camera, FileUp, Plus, Search } from "lucide-react";
-import { DocumentForm } from "./DocumentForm";
+import DocumentForm from "./DocumentForm";
 import { ApiKeyManager } from "./ApiKeyManager";
 import { DocumentCategory, DocumentType } from "@/types/documents";
 import { useToast } from "@/components/ui/use-toast";
