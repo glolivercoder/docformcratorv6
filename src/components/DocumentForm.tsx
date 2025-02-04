@@ -154,9 +154,11 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
 
   const handleCaptureImage = async () => {
     try {
+      // Limpar estados anteriores
       setShowFieldSelect(false);
       setShowOCRSelection(false);
       setCapturedImage('');
+      setOcrData(null);
       
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       const video = document.createElement('video');
@@ -183,6 +185,8 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
         canvas.remove();
         
         setCapturedImage(imageUrl);
+
+        // Primeiro mostrar seleção de sujeito
         setShowSubjectSelect(true);
       }
     } catch (error) {
@@ -200,15 +204,14 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
     if (!file) return;
 
     try {
+      // Limpar estados anteriores
       setShowFieldSelect(false);
       setShowOCRSelection(false);
       setCapturedImage('');
       setImageFile(file);
+      setOcrData(null);
       
-      const ocrService = OcrService.getInstance();
-      const result = await ocrService.extractText(file);
-
-      setOcrData(result);
+      // Primeiro mostrar seleção de sujeito
       setShowSubjectSelect(true);
       
       if (event.target) {
@@ -247,17 +250,38 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
     setShowOCRSelection(true);
   };
 
-  const handleSubjectSelect = (subject: SubjectSelection) => {
-    setSelectedSubject(subject);
-    const section = subject.type.startsWith('conjuge') 
-      ? subject.type.replace('conjuge', '').toLowerCase()
-      : subject.type;
-    setActiveAccordion([section]);
-    
-    if (ocrData) {
-      handleOCRResult(ocrData.text, subject);
-    } else {
-      setShowFieldSelect(true);
+  const handleSubjectSelect = async (subject: SubjectSelection) => {
+    try {
+      setSelectedSubject(subject);
+      
+      // Abrir seção correspondente no accordion
+      const section = subject.type.startsWith('conjuge') 
+        ? subject.type.replace('conjuge', '').toLowerCase()
+        : subject.type;
+      setActiveAccordion([section]);
+
+      // Processar OCR após selecionar o sujeito
+      const ocrService = OcrService.getInstance();
+      let ocrResult;
+      
+      if (capturedImage) {
+        ocrResult = await ocrService.extractText(capturedImage);
+      } else if (imageFile) {
+        ocrResult = await ocrService.extractText(imageFile);
+      }
+
+      if (ocrResult) {
+        handleOCRResult(ocrResult, subject);
+      }
+      
+      setShowSubjectSelect(false);
+    } catch (error) {
+      console.error('Erro ao processar OCR:', error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao processar OCR",
+        description: "Não foi possível extrair os dados da imagem.",
+      });
     }
   };
 
@@ -296,14 +320,19 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
     }
   };
 
-  const handleOCRResult = async (text: string, subject: SubjectSelection) => {
+  const handleOCRResult = async (ocrResult: any, subject: SubjectSelection) => {
     try {
-      if (!subject) return;
+      if (!subject || !ocrResult) {
+        console.error('Dados do OCR ou sujeito não definidos');
+        return;
+      }
 
+      // Determinar o caminho do campo baseado no tipo de sujeito
       const parentKey = subject.type.startsWith('conjuge')
         ? `${subject.type.replace('conjuge', '').toLowerCase()}.conjuge`
         : subject.type;
 
+      // Construir caminho de navegação
       const navigationPath = ['Documento'];
       if (documentType === DocumentType.LEASE_CONTRACT) {
         navigationPath.push('Contrato de Locação');
@@ -316,9 +345,11 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
       }
       if (subject.type.includes('conjuge')) navigationPath.push('Cônjuge');
 
+      // Atualizar dados do formulário APENAS para o sujeito selecionado
       const newData = { ...formData };
       if (!newData[parentKey]) newData[parentKey] = {};
 
+      // Mapear campos do OCR para o formulário
       const fieldMapping: { [key: string]: string } = {
         nomeCompleto: 'nomeCompleto',
         cpf: 'cpf',
@@ -329,9 +360,10 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
         filiacao: 'filiacao'
       };
 
+      // Preencher campos com dados do OCR APENAS para o sujeito selecionado
       Object.entries(fieldMapping).forEach(([ocrField, formField]) => {
-        if (text[ocrField]) {
-          const cleanValue = cleanFieldValue(ocrField, text[ocrField]);
+        if (ocrResult.text?.[ocrField]) {
+          const cleanValue = cleanFieldValue(ocrField, ocrResult.text[ocrField]);
           
           if (ocrField === 'cpf' && !validateCPF(cleanValue)) {
             toast({
@@ -346,16 +378,20 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
         }
       });
 
+      // Atualizar estado do formulário
       setFormData(newData);
       onFormDataChange?.(newData);
 
       toast({
         title: "Dados extraídos",
-        description: "Os campos foram preenchidos com os dados do OCR.",
+        description: `Os campos de ${subject.label} foram preenchidos com os dados do OCR.`,
       });
 
-      setShowSubjectSelect(false);
+      // Limpar dados temporários
       setOcrData(null);
+      setCapturedImage('');
+      setImageFile(null);
+      
     } catch (error) {
       console.error('Erro ao processar resultado do OCR:', error);
       toast({
