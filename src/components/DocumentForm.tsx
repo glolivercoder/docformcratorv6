@@ -157,6 +157,7 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
       // Limpar estados anteriores
       setShowFieldSelect(false);
       setShowOCRSelection(false);
+      setShowConfirmation(false);
       setCapturedImage('');
       setOcrData(null);
       
@@ -186,7 +187,7 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
         
         setCapturedImage(imageUrl);
 
-        // Primeiro mostrar seleção de sujeito
+        // Mostrar APENAS a seleção de sujeito
         setShowSubjectSelect(true);
       }
     } catch (error) {
@@ -207,11 +208,12 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
       // Limpar estados anteriores
       setShowFieldSelect(false);
       setShowOCRSelection(false);
+      setShowConfirmation(false);
       setCapturedImage('');
       setImageFile(file);
       setOcrData(null);
       
-      // Primeiro mostrar seleção de sujeito
+      // Mostrar APENAS a seleção de sujeito
       setShowSubjectSelect(true);
       
       if (event.target) {
@@ -740,214 +742,60 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
         </div>
       </div>
 
-      {(showFieldSelect || showOCRSelection) && (
-        <div className="mb-4">
-          <h3 className="text-lg font-medium mb-2">Selecione o Sujeito do Documento</h3>
-          <div className="grid grid-cols-2 gap-2">
-            {getSubjectOptions().map((option) => (
-              <Button
-                key={option.type}
-                variant={selectedSubject?.type === option.type ? "default" : "outline"}
-                onClick={() => handleSubjectSelect(option)}
-              >
-                {option.label}
-              </Button>
-            ))}
-          </div>
+      {showSubjectSelect && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-[400px] p-6">
+            <h3 className="text-xl font-semibold mb-4">Selecione para quem são os dados</h3>
+            <div className="grid gap-3">
+              {getSubjectOptions().map((option) => (
+                <Button
+                  key={option.type}
+                  variant="outline"
+                  className="w-full justify-start text-left font-normal h-auto p-3"
+                  onClick={() => handleSubjectSelect(option)}
+                >
+                  <div>
+                    <div className="font-medium">{option.label}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {option.type.includes('conjuge') 
+                        ? 'Dados do cônjuge'
+                        : option.type.includes('vendedor') || option.type.includes('locador')
+                          ? 'Proprietário do imóvel'
+                          : 'Interessado no imóvel'
+                      }
+                    </div>
+                  </div>
+                </Button>
+              ))}
+            </div>
+            <Button
+              variant="ghost"
+              className="w-full mt-4"
+              onClick={() => {
+                setShowSubjectSelect(false);
+                setCapturedImage('');
+                setImageFile(null);
+              }}
+            >
+              Cancelar
+            </Button>
+          </Card>
         </div>
       )}
 
-      <div className="space-y-4">
-        <div className="space-y-4">
-          <div className="flex items-center space-x-2 mb-4">
-            <Checkbox
-              id="useSystemDate"
-              checked={useSystemDate}
-              onCheckedChange={(checked) => setUseSystemDate(checked as boolean)}
-            />
-            <Label htmlFor="useSystemDate">Usar data do sistema</Label>
-          </div>
+      <OcrReportDialog
+        open={showOcrReport}
+        onOpenChange={setShowOcrReport}
+      />
 
-          <Accordion 
-            type="multiple" 
-            value={activeAccordion}
-            onValueChange={setActiveAccordion}
-            className="w-full space-y-4"
-          >
-            {documentType === DocumentType.LEASE_CONTRACT && (
-              <>
-                <AccordionItem value="locador">
-                  <AccordionTrigger>Informações do Locador</AccordionTrigger>
-                  <AccordionContent>
-                    <DocumentSection
-                      fields={formData.locador}
-                      parent="locador"
-                      onInputChange={handleInputChange}
-                      useSystemDate={useSystemDate}
-                    />
-                    {renderConjugeSection('locador', true, incluirConjugeLocador, setIncluirConjugeLocador)}
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="locatario">
-                  <AccordionTrigger>Informações do Locatário</AccordionTrigger>
-                  <AccordionContent>
-                    <DocumentSection
-                      fields={formData.locatario}
-                      parent="locatario"
-                      onInputChange={handleInputChange}
-                      useSystemDate={useSystemDate}
-                    />
-                    {renderConjugeSection('locatario', true, incluirConjugeLocatario, setIncluirConjugeLocatario)}
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="imovel">
-                  <AccordionTrigger>Informações do Imóvel</AccordionTrigger>
-                  <AccordionContent>
-                    <DocumentSection
-                      fields={formData.imovel}
-                      parent="imovel"
-                      onInputChange={handleInputChange}
-                      useSystemDate={useSystemDate}
-                    />
-                  </AccordionContent>
-                </AccordionItem>
-              </>
-            )}
-
-            {documentType === DocumentType.SALE_CONTRACT && (
-              <>
-                <AccordionItem value="vendedor">
-                  <AccordionTrigger>Informações do Vendedor</AccordionTrigger>
-                  <AccordionContent>
-                    <DocumentSection
-                      fields={formData.vendedor}
-                      parent="vendedor"
-                      onInputChange={handleInputChange}
-                      useSystemDate={useSystemDate}
-                    />
-                    {renderConjugeSection('vendedor')}
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="comprador">
-                  <AccordionTrigger>Informações do Comprador</AccordionTrigger>
-                  <AccordionContent>
-                    <DocumentSection
-                      fields={formData.comprador}
-                      parent="comprador"
-                      onInputChange={handleInputChange}
-                      useSystemDate={useSystemDate}
-                    />
-                    {renderConjugeSection('comprador')}
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="imovel">
-                  <AccordionTrigger>Informações do Imóvel</AccordionTrigger>
-                  <AccordionContent>
-                    <DocumentSection
-                      fields={formData.imovel}
-                      parent="imovel"
-                      onInputChange={handleInputChange}
-                      useSystemDate={useSystemDate}
-                    />
-                  </AccordionContent>
-                </AccordionItem>
-              </>
-            )}
-          </Accordion>
-        </div>
-
-        <Card className="p-6" id="document-content">
-          <div className="prose max-w-none">
-            <h1 className="text-2xl font-bold text-center mb-6">
-              {documentType === DocumentType.LEASE_CONTRACT
-                ? "Contrato de Locação"
-                : documentType === DocumentType.SALE_CONTRACT
-                ? "Contrato de Venda"
-                : "Documento"}
-            </h1>
-            
-            <div className="space-y-4">
-              {Object.entries(formData).map(([section, data]: [string, any]) => (
-                <div key={section}>
-                  <h2 className="text-xl font-semibold">
-                    {section.charAt(0).toUpperCase() + section.slice(1)}
-                  </h2>
-                  {Object.entries(data).map(([field, value]: [string, any]) => (
-                    typeof value !== 'object' && (
-                      <p key={field} className="mb-2">
-                        <strong>{field.charAt(0).toUpperCase() + field.slice(1)}:</strong> {value}
-                      </p>
-                    )
-                  ))}
-                </div>
-              ))}
-            </div>
-          </div>
-        </Card>
-
-        <OCRFieldSelectDialog
-          open={showFieldSelect}
-          onOpenChange={setShowFieldSelect}
-          documentType={documentType}
-          onFieldSelect={handleFieldSelect}
-        />
-
-        {showOCRSelection && (
-          <OCRSelectionArea
-            imageUrl={capturedImage}
-            open={showOCRSelection}
-            onOpenChange={setShowOCRSelection}
-            onSelect={handleOCRResult}
-            availableFields={[
-              { label: 'Nome Completo', value: `${selectedField}.nomeCompleto` },
-              { label: 'CPF', value: `${selectedField}.cpf` },
-              { label: 'RG/Documento', value: `${selectedField}.numeroDocumento` },
-              { label: 'Órgão Expedidor', value: `${selectedField}.orgaoExpedidor` },
-              { label: 'Data de Expedição', value: `${selectedField}.dataExpedicao` },
-              { label: 'Data de Nascimento', value: `${selectedField}.dataNascimento` },
-              { label: 'Naturalidade', value: `${selectedField}.naturalidade` },
-              { label: 'Filiação', value: `${selectedField}.filiacao` },
-            ]}
-          />
-        )}
-
-        <OcrReportDialog
-          open={showOcrReport}
-          onOpenChange={setShowOcrReport}
-        />
-
-        {showSubjectSelect && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
-              <h3 className="text-lg font-medium mb-4">Selecione o Sujeito do Documento</h3>
-              <div className="grid grid-cols-2 gap-2">
-                {getSubjectOptions().map((option) => (
-                  <Button
-                    key={option.type}
-                    variant="outline"
-                    onClick={() => handleSubjectSelect(option)}
-                  >
-                    {option.label}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="mt-8 flex justify-end">
-          <Button 
-            onClick={handleSaveForm}
-            className="flex items-center gap-2"
-            size="lg"
-          >
-            Salvar Todos os Dados
-          </Button>
-        </div>
+      <div className="mt-8 flex justify-end">
+        <Button 
+          onClick={handleSaveForm}
+          className="flex items-center gap-2"
+          size="lg"
+        >
+          Salvar Todos os Dados
+        </Button>
       </div>
     </div>
   );
