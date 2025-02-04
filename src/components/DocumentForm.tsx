@@ -57,6 +57,8 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
   }>>([]);
   const [showSubjectSelect, setShowSubjectSelect] = useState(false);
   const [ocrData, setOcrData] = useState<any>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [currentStep, setCurrentStep] = useState<'idle' | 'selecting' | 'processing' | 'manual'>('idle');
 
   useEffect(() => {
     const docType = documentType === DocumentType.LEASE_CONTRACT ? 'contratoLocacao' 
@@ -152,14 +154,24 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
     logger.logFieldMapping(field, value, 1.0); // Confiança máxima para entrada manual
   };
 
+  const resetState = () => {
+    setShowFieldSelect(false);
+    setShowOCRSelection(false);
+    setShowConfirmation(false);
+    setCapturedImage('');
+    setImageFile(null);
+    setOcrData(null);
+    setCurrentStep('idle');
+    setIsProcessing(false);
+    setSelectedSubject(null);
+  };
+
   const handleCaptureImage = async () => {
     try {
-      // Limpar estados
-      setShowFieldSelect(false);
-      setShowOCRSelection(false);
-      setShowConfirmation(false);
-      setCapturedImage('');
-      setOcrData(null);
+      if (isProcessing) return;
+      
+      resetState();
+      setIsProcessing(true);
       
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       const video = document.createElement('video');
@@ -186,7 +198,7 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
         canvas.remove();
         
         setCapturedImage(imageUrl);
-        // Primeiro mostrar seleção de usuário
+        setCurrentStep('selecting');
         setShowSubjectSelect(true);
       }
     } catch (error) {
@@ -196,23 +208,20 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
         title: "Erro ao capturar imagem",
         description: "Verifique se sua câmera está disponível.",
       });
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file || isProcessing) return;
 
     try {
-      // Limpar estados
-      setShowFieldSelect(false);
-      setShowOCRSelection(false);
-      setShowConfirmation(false);
-      setCapturedImage('');
+      resetState();
+      setIsProcessing(true);
       setImageFile(file);
-      setOcrData(null);
-      
-      // Primeiro mostrar seleção de usuário
+      setCurrentStep('selecting');
       setShowSubjectSelect(true);
       
       if (event.target) {
@@ -225,20 +234,25 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
         description: 'Não foi possível processar a imagem. Tente novamente.',
         variant: 'destructive'
       });
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   const handleSubjectSelect = async (subject: SubjectSelection) => {
+    if (isProcessing) return;
+
     try {
+      setIsProcessing(true);
       setSelectedSubject(subject);
       
-      // Abrir seção correspondente no accordion
+      // Forçar abertura da seção correta
       const section = subject.type.startsWith('conjuge') 
         ? subject.type.replace('conjuge', '').toLowerCase()
         : subject.type;
       setActiveAccordion([section]);
 
-      // Tentar OCR automático
+      // Processar OCR
       const ocrService = OcrService.getInstance();
       let ocrResult;
       
@@ -249,20 +263,22 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
       }
 
       if (ocrResult && ocrResult.success) {
-        // Se OCR teve sucesso, mostrar confirmação
         setOcrData(ocrResult);
+        setCurrentStep('processing');
         setShowConfirmation(true);
       } else {
-        // Se OCR falhou, mostrar seleção manual
+        setCurrentStep('manual');
         setShowFieldSelect(true);
       }
       
       setShowSubjectSelect(false);
     } catch (error) {
       console.error('Erro ao processar OCR:', error);
-      // Se der erro, mostrar seleção manual
+      setCurrentStep('manual');
       setShowFieldSelect(true);
       setShowSubjectSelect(false);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -286,62 +302,62 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
   };
 
   const handleOCRResult = async (ocrResult: any, subject: SubjectSelection) => {
+    if (!subject || !ocrResult || isProcessing) return;
+
     try {
-      if (!subject || !ocrResult) return;
+      setIsProcessing(true);
+
+      // Garantir que a seção está aberta
+      const section = subject.type.startsWith('conjuge') 
+        ? subject.type.replace('conjuge', '').toLowerCase()
+        : subject.type;
+      
+      if (!activeAccordion.includes(section)) {
+        setActiveAccordion([section]);
+        // Aguardar a seção abrir
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
 
       // Determinar caminho do campo
       const parentKey = subject.type.startsWith('conjuge')
         ? `${subject.type.replace('conjuge', '').toLowerCase()}.conjuge`
         : subject.type;
 
-      // Forçar abertura da seção correta
-      const section = subject.type.startsWith('conjuge') 
-        ? subject.type.replace('conjuge', '').toLowerCase()
-        : subject.type;
-      setActiveAccordion([section]);
-
       // Atualizar APENAS os campos do sujeito selecionado
       const newData = { ...formData };
       if (!newData[parentKey]) newData[parentKey] = {};
 
-      // Mapear TODOS os campos possíveis
-      const fieldMapping: { [key: string]: string } = {
-        nomeCompleto: 'nomeCompleto',
-        cpf: 'cpf',
-        rg: 'numeroDocumento',
-        dataExpedicao: 'dataExpedicao',
-        dataNascimento: 'dataNascimento',
-        naturalidade: 'naturalidade',
-        filiacao: 'filiacao',
-        orgaoExpedidor: 'orgaoExpedidor',
-        profissao: 'profissao',
-        nacionalidade: 'nacionalidade',
-        estadoCivil: 'estadoCivil',
-        telefone: 'telefone',
-        celular: 'celular',
-        email: 'email',
-        endereco: 'endereco',
-        numero: 'numero',
-        complemento: 'complemento',
-        bairro: 'bairro',
-        cidade: 'cidade',
-        estado: 'estado',
-        cep: 'cep'
-      };
+      // Usar dados do log para preencher campos
+      const logger = OcrLogService.getInstance();
+      const recentLogs = logger.getRecentLogs();
+      
+      // Filtrar logs relevantes
+      const relevantLogs = recentLogs.filter(log => 
+        log.documentType === 'RG' && 
+        log.success &&
+        log.fieldMappings.length > 0
+      );
 
-      // Preencher campos com dados do OCR
-      Object.entries(fieldMapping).forEach(([ocrField, formField]) => {
-        if (ocrResult.text?.[ocrField]) {
-          const cleanValue = cleanFieldValue(ocrField, ocrResult.text[ocrField]);
-          if (ocrField === 'cpf' && !validateCPF(cleanValue)) {
-            toast({
-              variant: "warning",
-              title: "CPF Inválido",
-              description: "O CPF extraído não é válido. Por favor, verifique.",
+      // Mapa para armazenar os melhores valores
+      const bestValues = new Map<string, { value: string; confidence: number }>();
+
+      // Processar logs para encontrar os melhores valores
+      relevantLogs.forEach(log => {
+        log.fieldMappings.forEach(mapping => {
+          const current = bestValues.get(mapping.fieldName);
+          if (!current || mapping.confidence > current.confidence) {
+            bestValues.set(mapping.fieldName, {
+              value: mapping.value,
+              confidence: mapping.confidence
             });
-            return;
           }
-          newData[parentKey][formField] = cleanValue;
+        });
+      });
+
+      // Preencher campos com os melhores valores
+      bestValues.forEach((data, fieldName) => {
+        if (data.confidence > 50) { // Usar apenas valores com confiança > 50%
+          newData[parentKey][fieldName] = data.value;
         }
       });
 
@@ -349,27 +365,16 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
       setFormData(newData);
       onFormDataChange?.(newData);
 
-      // Registrar no log
-      const logger = OcrLogService.getInstance();
-      Object.entries(fieldMapping).forEach(([ocrField, formField]) => {
-        if (ocrResult.text?.[ocrField]) {
-          logger.logFieldMapping(
-            formField,
-            ocrResult.text[ocrField],
-            ocrResult.confidence || 0
-          );
-        }
-      });
-
       toast({
         title: "Dados extraídos",
         description: `Os campos de ${subject.label} foram preenchidos.`,
       });
 
-      // Limpar estados temporários
+      // Limpar estados
       setOcrData(null);
       setCapturedImage('');
       setImageFile(null);
+      setCurrentStep('idle');
       
     } catch (error) {
       console.error('Erro ao processar OCR:', error);
@@ -378,7 +383,10 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
         title: "Erro ao processar OCR",
         description: "Não foi possível preencher os campos. Use a seleção manual.",
       });
+      setCurrentStep('manual');
       setShowFieldSelect(true);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
