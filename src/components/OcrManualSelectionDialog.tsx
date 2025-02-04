@@ -24,14 +24,10 @@ const fieldLabels: { [key: string]: string } = {
   nomeCompleto: 'Nome Completo',
   cpf: 'CPF',
   rg: 'RG',
-  orgaoExpedidor: 'Órgão Expedidor',
   dataExpedicao: 'Data de Expedição',
   dataNascimento: 'Data de Nascimento',
   naturalidade: 'Naturalidade',
-  filiacao: 'Filiação',
-  profissao: 'Profissão',
-  nacionalidade: 'Nacionalidade',
-  estadoCivil: 'Estado Civil'
+  filiacao: 'Filiação'
 };
 
 export function OcrManualSelectionDialog({

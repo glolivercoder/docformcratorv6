@@ -20,10 +20,18 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { OcrLogService } from '@/services/OcrLogService';
+import { OcrReportDialog } from './OcrReportDialog';
+import { OcrService } from '@/services/OcrService';
 
 interface DocumentFormProps {
   documentType: DocumentType;
   onFormDataChange?: (data: Record<string, any>) => void;
+}
+
+interface SubjectSelection {
+  type: 'vendedor' | 'comprador' | 'locador' | 'locatario' | 'conjugeVendedor' | 'conjugeComprador' | 'conjugeLocador' | 'conjugeLocatario';
+  label: string;
 }
 
 const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => {
@@ -36,6 +44,19 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
   const [selectedField, setSelectedField] = useState('');
   const [incluirConjugeLocador, setIncluirConjugeLocador] = useState(true);
   const [incluirConjugeLocatario, setIncluirConjugeLocatario] = useState(false);
+  const [showOcrReport, setShowOcrReport] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [extractedFields, setExtractedFields] = useState<any[]>([]);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [activeAccordion, setActiveAccordion] = useState<string[]>([]);
+  const [selectedSubject, setSelectedSubject] = useState<SubjectSelection | null>(null);
+  const [registeredUsers, setRegisteredUsers] = useState<Array<{
+    id: string;
+    role: string;
+    data: any;
+  }>>([]);
+  const [showSubjectSelect, setShowSubjectSelect] = useState(false);
+  const [ocrData, setOcrData] = useState<any>(null);
 
   useEffect(() => {
     const docType = documentType === DocumentType.LEASE_CONTRACT ? 'contratoLocacao' 
@@ -44,6 +65,15 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
     const initialData = documentTypes[docType].fields;
     setFormData(initialData);
     onFormDataChange?.(initialData);
+
+    // Carregar dados do OCR se disponíveis
+    if (documentType === DocumentType.SALE_CONTRACT) {
+      loadOcrData(documentType, 'vendedor');
+      loadOcrData(documentType, 'comprador');
+    } else if (documentType === DocumentType.LEASE_CONTRACT) {
+      loadOcrData(documentType, 'locador');
+      loadOcrData(documentType, 'locatario');
+    }
   }, [documentType]);
 
   useEffect(() => {
@@ -52,6 +82,12 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
       handleInputChange('dataPorExtenso', currentDate);
     }
   }, [useSystemDate]);
+
+  useEffect(() => {
+    // Registrar o caminho do formulário atual
+    const logger = OcrLogService.getInstance();
+    logger.setFormPath(`${documentType}/${selectedField}`);
+  }, [documentType, selectedField]);
 
   const handleInputChange = async (field: string, value: any, parent: string | null = null) => {
     // Se o campo for CEP, buscar endereço
@@ -110,25 +146,45 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
       onFormDataChange?.(newData);
       return newData;
     });
+
+    // Log da alteração manual do campo
+    const logger = OcrLogService.getInstance();
+    logger.logFieldMapping(field, value, 1.0); // Confiança máxima para entrada manual
   };
 
   const handleCaptureImage = async () => {
     try {
+      setShowFieldSelect(false);
+      setShowOCRSelection(false);
+      setCapturedImage('');
+      
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       const video = document.createElement('video');
       video.srcObject = stream;
+      
+      await new Promise((resolve) => {
+        video.onloadedmetadata = resolve;
+      });
+      
       await video.play();
 
       const canvas = document.createElement('canvas');
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      canvas.getContext('2d')?.drawImage(video, 0, 0);
+      const ctx = canvas.getContext('2d');
       
-      const imageUrl = canvas.toDataURL('image/jpeg');
-      stream.getTracks().forEach(track => track.stop());
-      
-      setCapturedImage(imageUrl);
-      setShowFieldSelect(true);
+      if (ctx) {
+        ctx.drawImage(video, 0, 0);
+        const imageUrl = canvas.toDataURL('image/jpeg');
+        
+        stream.getTracks().forEach(track => track.stop());
+        video.pause();
+        video.srcObject = null;
+        canvas.remove();
+        
+        setCapturedImage(imageUrl);
+        setShowSubjectSelect(true);
+      }
     } catch (error) {
       console.error('Error capturing image:', error);
       toast({
@@ -139,52 +195,240 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
     }
   };
 
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setShowFieldSelect(false);
+      setShowOCRSelection(false);
+      setCapturedImage('');
+      setImageFile(file);
+      
+      const ocrService = OcrService.getInstance();
+      const result = await ocrService.extractText(file);
+
+      setOcrData(result);
+      setShowSubjectSelect(true);
+      
+      if (event.target) {
+        event.target.value = '';
+      }
+    } catch (error) {
+      console.error('Erro ao processar imagem:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível processar a imagem. Tente novamente.',
+        variant: 'destructive'
+      });
+    }
+  };
+
   const handleFieldSelect = async (field: string) => {
+    const pathParts = field.split('.');
+    const logger = OcrLogService.getInstance();
+    
+    // Registrar caminho de navegação
+    const navigationPath = ['Documento'];
+    if (documentType === DocumentType.LEASE_CONTRACT) {
+      navigationPath.push('Contrato de Locação');
+      if (pathParts[0] === 'locador') navigationPath.push('Locador');
+      if (pathParts[0] === 'locatario') navigationPath.push('Locatário');
+    } else if (documentType === DocumentType.SALE_CONTRACT) {
+      navigationPath.push('Contrato de Venda');
+      if (pathParts[0] === 'vendedor') navigationPath.push('Vendedor');
+      if (pathParts[0] === 'comprador') navigationPath.push('Comprador');
+    }
+    navigationPath.push(pathParts[1] || pathParts[0]);
+    
+    logger.setNavigationPath(navigationPath);
     setSelectedField(field);
     setShowFieldSelect(false);
     setShowOCRSelection(true);
   };
 
-  const handleOCRResult = async (text: string, field: string) => {
-    const fieldParts = field.split('.');
-    const parent = fieldParts.length > 1 ? fieldParts[0] : null;
-    const actualField = fieldParts.length > 1 ? fieldParts[1] : field;
+  const handleSubjectSelect = (subject: SubjectSelection) => {
+    setSelectedSubject(subject);
+    const section = subject.type.startsWith('conjuge') 
+      ? subject.type.replace('conjuge', '').toLowerCase()
+      : subject.type;
+    setActiveAccordion([section]);
+    
+    if (ocrData) {
+      handleOCRResult(ocrData.text, subject);
+    } else {
+      setShowFieldSelect(true);
+    }
+  };
 
-    handleInputChange(actualField, text, parent);
+  const validateCPF = (cpf: string): boolean => {
+    const cleanCPF = cpf.replace(/\D/g, '');
+    if (cleanCPF.length !== 11) return false;
+    
+    let sum = 0;
+    for (let i = 0; i < 9; i++) {
+      sum += parseInt(cleanCPF.charAt(i)) * (10 - i);
+    }
+    let digit = 11 - (sum % 11);
+    if (digit >= 10) digit = 0;
+    if (digit !== parseInt(cleanCPF.charAt(9))) return false;
+    
+    sum = 0;
+    for (let i = 0; i < 10; i++) {
+      sum += parseInt(cleanCPF.charAt(i)) * (11 - i);
+    }
+    digit = 11 - (sum % 11);
+    if (digit >= 10) digit = 0;
+    return digit === parseInt(cleanCPF.charAt(10));
+  };
 
-    // Salvar no banco de dados
+  const cleanFieldValue = (field: string, value: string): string => {
+    switch (field) {
+      case 'cpf':
+        const numbers = value.replace(/\D/g, '');
+        return numbers.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+      case 'rg':
+        return value.replace(/[^\d]/g, '');
+      case 'naturalidade':
+        return value.replace(/Data De Nascimento\s+/i, '').trim();
+      default:
+        return value;
+    }
+  };
+
+  const handleOCRResult = async (text: string, subject: SubjectSelection) => {
     try {
-      const userDocument = {
-        userId: 1, // Você precisará implementar um sistema de gestão de usuários
-        documentType: formData[parent]?.tipoDocumento || '',
-        documentNumber: formData[parent]?.numeroDocumento || '',
-        documentFields: {
-          [actualField]: text
-        },
-        issuingBody: formData[parent]?.orgaoExpedidor || '',
-        issueDate: formData[parent]?.dataExpedicao || '',
-        birthDate: formData[parent]?.dataNascimento || '',
-        birthPlace: formData[parent]?.naturalidade || '',
-        filiation: formData[parent]?.filiacao || '',
-        fullName: formData[parent]?.nomeCompleto || '',
-        cpf: formData[parent]?.cpf || '',
-        profession: formData[parent]?.profissao || '',
-        createdAt: new Date(),
-        updatedAt: new Date()
+      if (!subject) return;
+
+      const parentKey = subject.type.startsWith('conjuge')
+        ? `${subject.type.replace('conjuge', '').toLowerCase()}.conjuge`
+        : subject.type;
+
+      const navigationPath = ['Documento'];
+      if (documentType === DocumentType.LEASE_CONTRACT) {
+        navigationPath.push('Contrato de Locação');
+        if (subject.type.includes('locador')) navigationPath.push('Locador');
+        if (subject.type.includes('locatario')) navigationPath.push('Locatário');
+      } else if (documentType === DocumentType.SALE_CONTRACT) {
+        navigationPath.push('Contrato de Venda');
+        if (subject.type.includes('vendedor')) navigationPath.push('Vendedor');
+        if (subject.type.includes('comprador')) navigationPath.push('Comprador');
+      }
+      if (subject.type.includes('conjuge')) navigationPath.push('Cônjuge');
+
+      const newData = { ...formData };
+      if (!newData[parentKey]) newData[parentKey] = {};
+
+      const fieldMapping: { [key: string]: string } = {
+        nomeCompleto: 'nomeCompleto',
+        cpf: 'cpf',
+        rg: 'numeroDocumento',
+        dataExpedicao: 'dataExpedicao',
+        dataNascimento: 'dataNascimento',
+        naturalidade: 'naturalidade',
+        filiacao: 'filiacao'
       };
 
-      await databaseService.saveUserDocument(userDocument);
-      
-      toast({
-        title: "Documento salvo",
-        description: "As informações foram salvas no banco de dados.",
+      Object.entries(fieldMapping).forEach(([ocrField, formField]) => {
+        if (text[ocrField]) {
+          const cleanValue = cleanFieldValue(ocrField, text[ocrField]);
+          
+          if (ocrField === 'cpf' && !validateCPF(cleanValue)) {
+            toast({
+              variant: "warning",
+              title: "CPF Inválido",
+              description: "O CPF extraído não é válido. Por favor, verifique.",
+            });
+            return;
+          }
+
+          newData[parentKey][formField] = cleanValue;
+        }
       });
+
+      setFormData(newData);
+      onFormDataChange?.(newData);
+
+      toast({
+        title: "Dados extraídos",
+        description: "Os campos foram preenchidos com os dados do OCR.",
+      });
+
+      setShowSubjectSelect(false);
+      setOcrData(null);
     } catch (error) {
-      console.error('Error saving document:', error);
+      console.error('Erro ao processar resultado do OCR:', error);
       toast({
         variant: "destructive",
-        title: "Erro ao salvar documento",
-        description: "Não foi possível salvar as informações no banco de dados.",
+        title: "Erro ao processar OCR",
+        description: "Não foi possível atualizar os campos com o texto extraído.",
+      });
+    }
+  };
+
+  // Adicionar função para carregar dados do OCR
+  const loadOcrData = (documentType: DocumentType, parent: string) => {
+    const logger = OcrLogService.getInstance();
+    const logs = logger.getRecentLogs();
+    
+    // Filtrar logs relevantes para o documento atual
+    const relevantLogs = logs.filter(log => 
+      log.documentType === 'RG' && 
+      log.formPath.startsWith(`${documentType}/`) &&
+      log.success
+    );
+
+    if (relevantLogs.length > 0) {
+      // Mapa para armazenar os campos com maior confiança
+      const bestFields = new Map<string, { value: string; confidence: number }>();
+      
+      relevantLogs.forEach(log => {
+        log.fieldMappings.forEach(field => {
+          const currentBest = bestFields.get(field.fieldName);
+          if (!currentBest || field.confidence > currentBest.confidence) {
+            bestFields.set(field.fieldName, {
+              value: field.value,
+              confidence: field.confidence
+            });
+          }
+        });
+      });
+
+      // Mapeamento de campos do OCR para campos do formulário
+      const fieldMapping: { [key: string]: string } = {
+        nomeCompleto: 'nomeCompleto',
+        cpf: 'cpf',
+        rg: 'numeroDocumento',
+        dataExpedicao: 'dataExpedicao',
+        dataNascimento: 'dataNascimento',
+        naturalidade: 'naturalidade',
+        filiacao: 'filiacao'
+      };
+
+      // Atualizar o formulário com os dados do OCR
+      setFormData(prev => {
+        const newData = { ...prev };
+        if (!newData[parent]) newData[parent] = {};
+
+        bestFields.forEach((data, fieldName) => {
+          const formField = fieldMapping[fieldName];
+          if (formField) {
+            newData[parent][formField] = data.value;
+          }
+        });
+
+        // Se tiver RG, definir tipo de documento
+        if (bestFields.has('rg')) {
+          newData[parent]['tipoDocumento'] = 'RG';
+        }
+
+        onFormDataChange?.(newData);
+        return newData;
+      });
+
+      toast({
+        title: "Dados carregados",
+        description: "Os campos foram preenchidos com os dados do OCR.",
       });
     }
   };
@@ -277,105 +521,171 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
     );
   };
 
+  // Função para obter opções de sujeito baseado no tipo de documento
+  const getSubjectOptions = (): SubjectSelection[] => {
+    if (documentType === DocumentType.SALE_CONTRACT) {
+      const options: SubjectSelection[] = [
+        { type: 'vendedor', label: 'Vendedor' },
+        { type: 'comprador', label: 'Comprador' }
+      ];
+      if (incluirConjugeLocador) options.push({ type: 'conjugeVendedor', label: 'Cônjuge do Vendedor' });
+      if (incluirConjugeLocatario) options.push({ type: 'conjugeComprador', label: 'Cônjuge do Comprador' });
+      return options;
+    } else if (documentType === DocumentType.LEASE_CONTRACT) {
+      const options: SubjectSelection[] = [
+        { type: 'locador', label: 'Locador' },
+        { type: 'locatario', label: 'Locatário' }
+      ];
+      if (incluirConjugeLocador) options.push({ type: 'conjugeLocador', label: 'Cônjuge do Locador' });
+      if (incluirConjugeLocatario) options.push({ type: 'conjugeLocatario', label: 'Cônjuge do Locatário' });
+      return options;
+    }
+    return [];
+  };
+
+  const handleContactAction = (phoneNumber: string, action: 'whatsapp' | 'telegram' | 'call') => {
+    const formattedNumber = phoneNumber.replace(/\D/g, '');
+    switch (action) {
+      case 'whatsapp':
+        window.open(`https://wa.me/${formattedNumber}`, '_blank');
+        break;
+      case 'telegram':
+        window.open(`https://t.me/${formattedNumber}`, '_blank');
+        break;
+      case 'call':
+        window.location.href = `tel:${formattedNumber}`;
+        break;
+    }
+  };
+
+  const handleSaveForm = async () => {
+    try {
+      const usersToSave = [];
+      
+      if (documentType === DocumentType.SALE_CONTRACT) {
+        // Salvar vendedor
+        if (formData.vendedor) {
+          usersToSave.push({
+            id: `vendedor_${Date.now()}`,
+            role: 'Vendedor',
+            data: formData.vendedor,
+            documentType
+          });
+        }
+        
+        // Salvar cônjuge do vendedor
+        if (formData.vendedor?.conjuge && incluirConjugeLocador) {
+          usersToSave.push({
+            id: `conjugeVendedor_${Date.now()}`,
+            role: 'Cônjuge do Vendedor',
+            data: formData.vendedor.conjuge,
+            documentType
+          });
+        }
+        
+        // Salvar comprador
+        if (formData.comprador) {
+          usersToSave.push({
+            id: `comprador_${Date.now()}`,
+            role: 'Comprador',
+            data: formData.comprador,
+            documentType
+          });
+        }
+        
+        // Salvar cônjuge do comprador
+        if (formData.comprador?.conjuge && incluirConjugeLocatario) {
+          usersToSave.push({
+            id: `conjugeComprador_${Date.now()}`,
+            role: 'Cônjuge do Comprador',
+            data: formData.comprador.conjuge,
+            documentType
+          });
+        }
+      } else if (documentType === DocumentType.LEASE_CONTRACT) {
+        // Salvar locador
+        if (formData.locador) {
+          usersToSave.push({
+            id: `locador_${Date.now()}`,
+            role: 'Locador',
+            data: formData.locador,
+            documentType
+          });
+        }
+        
+        // Salvar cônjuge do locador
+        if (formData.locador?.conjuge && incluirConjugeLocador) {
+          usersToSave.push({
+            id: `conjugeLocador_${Date.now()}`,
+            role: 'Cônjuge do Locador',
+            data: formData.locador.conjuge,
+            documentType
+          });
+        }
+        
+        // Salvar locatário
+        if (formData.locatario) {
+          usersToSave.push({
+            id: `locatario_${Date.now()}`,
+            role: 'Locatário',
+            data: formData.locatario,
+            documentType
+          });
+        }
+        
+        // Salvar cônjuge do locatário
+        if (formData.locatario?.conjuge && incluirConjugeLocatario) {
+          usersToSave.push({
+            id: `conjugeLocatario_${Date.now()}`,
+            role: 'Cônjuge do Locatário',
+            data: formData.locatario.conjuge,
+            documentType
+          });
+        }
+      }
+
+      // Salvar todos os usuários no banco de dados
+      for (const user of usersToSave) {
+        await databaseService.saveUserDocument(user);
+      }
+
+      // Atualizar lista de usuários registrados
+      setRegisteredUsers(prev => [...prev, ...usersToSave]);
+
+      toast({
+        title: "Dados salvos com sucesso",
+        description: "Todos os usuários foram salvos no cadastro.",
+      });
+
+      // Limpar formulário após salvar
+      const docType = documentType === DocumentType.LEASE_CONTRACT ? 'contratoLocacao' 
+                    : documentType === DocumentType.SALE_CONTRACT ? 'contratoVenda'
+                    : 'recibo';
+      const initialData = documentTypes[docType].fields;
+      setFormData(initialData);
+      onFormDataChange?.(initialData);
+
+    } catch (error) {
+      console.error('Erro ao salvar formulário:', error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao salvar",
+        description: "Não foi possível salvar os dados. Tente novamente.",
+      });
+    }
+  };
+
   return (
-    <div className="space-y-4">
-      <div className="space-y-4">
-        <div className="flex items-center space-x-2 mb-4">
-          <Checkbox
-            id="useSystemDate"
-            checked={useSystemDate}
-            onCheckedChange={(checked) => setUseSystemDate(checked as boolean)}
-          />
-          <Label htmlFor="useSystemDate">Usar data do sistema</Label>
-        </div>
-
-        <Accordion type="multiple" className="w-full space-y-4">
-          {documentType === DocumentType.LEASE_CONTRACT && (
-            <>
-              <AccordionItem value="locador">
-                <AccordionTrigger>Informações do Locador</AccordionTrigger>
-                <AccordionContent>
-                  <DocumentSection
-                    fields={formData.locador}
-                    parent="locador"
-                    onInputChange={handleInputChange}
-                    useSystemDate={useSystemDate}
-                  />
-                  {renderConjugeSection('locador', true, incluirConjugeLocador, setIncluirConjugeLocador)}
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="locatario">
-                <AccordionTrigger>Informações do Locatário</AccordionTrigger>
-                <AccordionContent>
-                  <DocumentSection
-                    fields={formData.locatario}
-                    parent="locatario"
-                    onInputChange={handleInputChange}
-                    useSystemDate={useSystemDate}
-                  />
-                  {renderConjugeSection('locatario', true, incluirConjugeLocatario, setIncluirConjugeLocatario)}
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="imovel">
-                <AccordionTrigger>Informações do Imóvel</AccordionTrigger>
-                <AccordionContent>
-                  <DocumentSection
-                    fields={formData.imovel}
-                    parent="imovel"
-                    onInputChange={handleInputChange}
-                    useSystemDate={useSystemDate}
-                  />
-                </AccordionContent>
-              </AccordionItem>
-            </>
-          )}
-
-          {documentType === DocumentType.SALE_CONTRACT && (
-            <>
-              <AccordionItem value="vendedor">
-                <AccordionTrigger>Informações do Vendedor</AccordionTrigger>
-                <AccordionContent>
-                  <DocumentSection
-                    fields={formData.vendedor}
-                    parent="vendedor"
-                    onInputChange={handleInputChange}
-                    useSystemDate={useSystemDate}
-                  />
-                  {renderConjugeSection('vendedor')}
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="comprador">
-                <AccordionTrigger>Informações do Comprador</AccordionTrigger>
-                <AccordionContent>
-                  <DocumentSection
-                    fields={formData.comprador}
-                    parent="comprador"
-                    onInputChange={handleInputChange}
-                    useSystemDate={useSystemDate}
-                  />
-                  {renderConjugeSection('comprador')}
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="imovel">
-                <AccordionTrigger>Informações do Imóvel</AccordionTrigger>
-                <AccordionContent>
-                  <DocumentSection
-                    fields={formData.imovel}
-                    parent="imovel"
-                    onInputChange={handleInputChange}
-                    useSystemDate={useSystemDate}
-                  />
-                </AccordionContent>
-              </AccordionItem>
-            </>
-          )}
-        </Accordion>
-
+    <div className="container mx-auto p-4">
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">Gerador de Documentos</h1>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setShowOcrReport(true)}
+          >
+            Relatório OCR
+          </Button>
           <Button onClick={generatePDF} className="flex items-center gap-2">
             <FileDown className="w-4 h-4" />
             Exportar PDF
@@ -391,6 +701,127 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
             <Printer className="w-4 h-4" />
             Imprimir
           </Button>
+        </div>
+      </div>
+
+      {(showFieldSelect || showOCRSelection) && (
+        <div className="mb-4">
+          <h3 className="text-lg font-medium mb-2">Selecione o Sujeito do Documento</h3>
+          <div className="grid grid-cols-2 gap-2">
+            {getSubjectOptions().map((option) => (
+              <Button
+                key={option.type}
+                variant={selectedSubject?.type === option.type ? "default" : "outline"}
+                onClick={() => handleSubjectSelect(option)}
+              >
+                {option.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-4">
+        <div className="space-y-4">
+          <div className="flex items-center space-x-2 mb-4">
+            <Checkbox
+              id="useSystemDate"
+              checked={useSystemDate}
+              onCheckedChange={(checked) => setUseSystemDate(checked as boolean)}
+            />
+            <Label htmlFor="useSystemDate">Usar data do sistema</Label>
+          </div>
+
+          <Accordion 
+            type="multiple" 
+            value={activeAccordion}
+            onValueChange={setActiveAccordion}
+            className="w-full space-y-4"
+          >
+            {documentType === DocumentType.LEASE_CONTRACT && (
+              <>
+                <AccordionItem value="locador">
+                  <AccordionTrigger>Informações do Locador</AccordionTrigger>
+                  <AccordionContent>
+                    <DocumentSection
+                      fields={formData.locador}
+                      parent="locador"
+                      onInputChange={handleInputChange}
+                      useSystemDate={useSystemDate}
+                    />
+                    {renderConjugeSection('locador', true, incluirConjugeLocador, setIncluirConjugeLocador)}
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="locatario">
+                  <AccordionTrigger>Informações do Locatário</AccordionTrigger>
+                  <AccordionContent>
+                    <DocumentSection
+                      fields={formData.locatario}
+                      parent="locatario"
+                      onInputChange={handleInputChange}
+                      useSystemDate={useSystemDate}
+                    />
+                    {renderConjugeSection('locatario', true, incluirConjugeLocatario, setIncluirConjugeLocatario)}
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="imovel">
+                  <AccordionTrigger>Informações do Imóvel</AccordionTrigger>
+                  <AccordionContent>
+                    <DocumentSection
+                      fields={formData.imovel}
+                      parent="imovel"
+                      onInputChange={handleInputChange}
+                      useSystemDate={useSystemDate}
+                    />
+                  </AccordionContent>
+                </AccordionItem>
+              </>
+            )}
+
+            {documentType === DocumentType.SALE_CONTRACT && (
+              <>
+                <AccordionItem value="vendedor">
+                  <AccordionTrigger>Informações do Vendedor</AccordionTrigger>
+                  <AccordionContent>
+                    <DocumentSection
+                      fields={formData.vendedor}
+                      parent="vendedor"
+                      onInputChange={handleInputChange}
+                      useSystemDate={useSystemDate}
+                    />
+                    {renderConjugeSection('vendedor')}
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="comprador">
+                  <AccordionTrigger>Informações do Comprador</AccordionTrigger>
+                  <AccordionContent>
+                    <DocumentSection
+                      fields={formData.comprador}
+                      parent="comprador"
+                      onInputChange={handleInputChange}
+                      useSystemDate={useSystemDate}
+                    />
+                    {renderConjugeSection('comprador')}
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="imovel">
+                  <AccordionTrigger>Informações do Imóvel</AccordionTrigger>
+                  <AccordionContent>
+                    <DocumentSection
+                      fields={formData.imovel}
+                      parent="imovel"
+                      onInputChange={handleInputChange}
+                      useSystemDate={useSystemDate}
+                    />
+                  </AccordionContent>
+                </AccordionItem>
+              </>
+            )}
+          </Accordion>
         </div>
 
         <Card className="p-6" id="document-content">
@@ -447,6 +878,40 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
             ]}
           />
         )}
+
+        <OcrReportDialog
+          open={showOcrReport}
+          onOpenChange={setShowOcrReport}
+        />
+
+        {showSubjectSelect && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
+              <h3 className="text-lg font-medium mb-4">Selecione o Sujeito do Documento</h3>
+              <div className="grid grid-cols-2 gap-2">
+                {getSubjectOptions().map((option) => (
+                  <Button
+                    key={option.type}
+                    variant="outline"
+                    onClick={() => handleSubjectSelect(option)}
+                  >
+                    {option.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-8 flex justify-end">
+          <Button 
+            onClick={handleSaveForm}
+            className="flex items-center gap-2"
+            size="lg"
+          >
+            Salvar Todos os Dados
+          </Button>
+        </div>
       </div>
     </div>
   );

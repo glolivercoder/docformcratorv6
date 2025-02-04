@@ -1,5 +1,6 @@
 import { createWorker } from 'tesseract.js';
 import { processImage, cropImage, canvasToBlob } from '@/utils/imageProcessing';
+import { OcrLogService } from './OcrLogService';
 
 export type DocumentType = 'RG' | 'CNH' | 'CRECI';
 
@@ -168,6 +169,7 @@ export class OcrService {
   public async extractText(imageFile: File): Promise<OcrResult> {
     try {
       const worker = await this.initWorker();
+      const logger = OcrLogService.getInstance();
       
       console.log('Iniciando reconhecimento de texto...');
       
@@ -185,6 +187,19 @@ export class OcrService {
       
       const fields = await this.extractFieldsFromText(data.text);
       
+      // Log do resultado
+      const fieldMappings = Object.entries(fields).map(([fieldName, data]) => ({
+        fieldName,
+        value: data.value,
+        confidence: data.confidence
+      }));
+
+      logger.logOcrAttempt(
+        this.currentDocumentType,
+        fieldMappings,
+        fieldMappings.length > 0
+      );
+      
       console.log('Campos extraídos:', fields);
       
       return {
@@ -194,6 +209,8 @@ export class OcrService {
       };
     } catch (error) {
       console.error('Erro no OCR:', error);
+      const logger = OcrLogService.getInstance();
+      logger.logOcrAttempt(this.currentDocumentType, [], false);
       throw new Error('Falha ao processar a imagem. Verifique a qualidade e tente novamente.');
     }
   }
@@ -205,6 +222,7 @@ export class OcrService {
   ): Promise<string> {
     try {
       const worker = await this.initWorker();
+      const logger = OcrLogService.getInstance();
       
       // Processar imagem inteira primeiro
       const processedCanvas = await processImage(imageFile, {
@@ -251,6 +269,9 @@ export class OcrService {
       
       // Aplicar formatação específica baseada no tipo de campo
       text = this.formatFieldValue(text, field);
+
+      // Log do campo extraído
+      logger.logFieldMapping(field, text, data.confidence);
       
       // Salvar no histórico
       this.saveSelectionHistory(imageFile.name, rectangle, field, text);
@@ -258,6 +279,8 @@ export class OcrService {
       return text;
     } catch (error) {
       console.error('Erro ao extrair texto da seleção:', error);
+      const logger = OcrLogService.getInstance();
+      logger.logFieldMapping(field, '', 0);
       throw error;
     }
   }
