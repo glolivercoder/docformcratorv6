@@ -82,7 +82,7 @@
     "sonner": "^1.5.0",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
-    "tesseract.js": "^4.1.1",
+    "tesseract.js": "^5.0.3",
     "tesseract.js-core": "^6.0.0",
     "vaul": "^0.9.3",
     "zod": "^3.23.8"

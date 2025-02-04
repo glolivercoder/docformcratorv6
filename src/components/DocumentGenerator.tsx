@@ -18,6 +18,8 @@ import { useToast } from "@/components/ui/use-toast";
 import { OCRFieldSelectDialog } from "./dialogs/OCRFieldSelectDialog";
 import { OCRSelectionArea } from "./OCRSelectionArea";
 import { OcrService } from "@/services/OcrService";
+import { OcrConfirmationDialog } from './OcrConfirmationDialog';
+import { OcrManualSelectionDialog } from './OcrManualSelectionDialog';
 
 function DocumentGenerator() {
   const [selectedCategory, setSelectedCategory] = useState<DocumentCategory>();
@@ -29,6 +31,12 @@ function DocumentGenerator() {
   const [capturedImage, setCapturedImage] = useState<string>('');
   const [selectedField, setSelectedField] = useState('');
   const [currentFormData, setCurrentFormData] = useState<Record<string, any>>({});
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [showManualSelection, setShowManualSelection] = useState(false);
+  const [extractedFields, setExtractedFields] = useState<{
+    [key: string]: { value: string; confidence: number };
+  }>({});
 
   const categories = [
     { value: DocumentCategory.CONTRACT, label: "Contratos" },
@@ -87,19 +95,18 @@ function DocumentGenerator() {
     if (!file) return;
 
     try {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const imageUrl = e.target?.result as string;
-        setCapturedImage(imageUrl);
-        setShowFieldSelect(true);
-      };
-      reader.readAsDataURL(file);
+      setImageFile(file);
+      const ocrService = OcrService.getInstance();
+      const result = await ocrService.extractText(file);
+
+      setExtractedFields(result.fields);
+      setShowConfirmation(true);
     } catch (error) {
-      console.error('Error loading image:', error);
+      console.error('Erro ao processar imagem:', error);
       toast({
-        variant: "destructive",
-        title: "Erro ao carregar imagem",
-        description: "Não foi possível carregar a imagem selecionada.",
+        title: 'Erro',
+        description: 'Não foi possível processar a imagem. Tente novamente.',
+        variant: 'destructive'
       });
     }
   };
@@ -142,6 +149,21 @@ function DocumentGenerator() {
         description: "Ocorreu um erro no processamento. Use a seleção manual.",
       });
     }
+  };
+
+  const handleConfirm = () => {
+    const fields = Object.entries(extractedFields).reduce((acc, [key, data]) => {
+      acc[key] = data.value;
+      return acc;
+    }, {} as { [key: string]: string });
+
+    setCurrentFormData(fields);
+    setShowConfirmation(false);
+  };
+
+  const handleManualSelect = () => {
+    setShowConfirmation(false);
+    setShowManualSelection(true);
   };
 
   return (
@@ -273,6 +295,28 @@ function DocumentGenerator() {
             { label: 'Naturalidade', value: `${selectedField}.naturalidade` },
             { label: 'Filiação', value: `${selectedField}.filiacao` },
           ]}
+        />
+      )}
+
+      <OcrConfirmationDialog
+        open={showConfirmation}
+        onOpenChange={setShowConfirmation}
+        fields={extractedFields}
+        onConfirm={handleConfirm}
+        onManualSelect={handleManualSelect}
+      />
+
+      {imageFile && (
+        <OcrManualSelectionDialog
+          open={showManualSelection}
+          onOpenChange={setShowManualSelection}
+          imageFile={imageFile}
+          onFieldSelect={(field, value) => {
+            setExtractedFields(prev => ({
+              ...prev,
+              [field]: { value, confidence: 1 }
+            }));
+          }}
         />
       )}
     </div>
