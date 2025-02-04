@@ -154,7 +154,7 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
 
   const handleCaptureImage = async () => {
     try {
-      // Limpar estados anteriores
+      // Limpar estados
       setShowFieldSelect(false);
       setShowOCRSelection(false);
       setShowConfirmation(false);
@@ -186,8 +186,7 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
         canvas.remove();
         
         setCapturedImage(imageUrl);
-
-        // Mostrar APENAS a seleção de sujeito
+        // Primeiro mostrar seleção de usuário
         setShowSubjectSelect(true);
       }
     } catch (error) {
@@ -205,7 +204,7 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
     if (!file) return;
 
     try {
-      // Limpar estados anteriores
+      // Limpar estados
       setShowFieldSelect(false);
       setShowOCRSelection(false);
       setShowConfirmation(false);
@@ -213,7 +212,7 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
       setImageFile(file);
       setOcrData(null);
       
-      // Mostrar APENAS a seleção de sujeito
+      // Primeiro mostrar seleção de usuário
       setShowSubjectSelect(true);
       
       if (event.target) {
@@ -229,29 +228,6 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
     }
   };
 
-  const handleFieldSelect = async (field: string) => {
-    const pathParts = field.split('.');
-    const logger = OcrLogService.getInstance();
-    
-    // Registrar caminho de navegação
-    const navigationPath = ['Documento'];
-    if (documentType === DocumentType.LEASE_CONTRACT) {
-      navigationPath.push('Contrato de Locação');
-      if (pathParts[0] === 'locador') navigationPath.push('Locador');
-      if (pathParts[0] === 'locatario') navigationPath.push('Locatário');
-    } else if (documentType === DocumentType.SALE_CONTRACT) {
-      navigationPath.push('Contrato de Venda');
-      if (pathParts[0] === 'vendedor') navigationPath.push('Vendedor');
-      if (pathParts[0] === 'comprador') navigationPath.push('Comprador');
-    }
-    navigationPath.push(pathParts[1] || pathParts[0]);
-    
-    logger.setNavigationPath(navigationPath);
-    setSelectedField(field);
-    setShowFieldSelect(false);
-    setShowOCRSelection(true);
-  };
-
   const handleSubjectSelect = async (subject: SubjectSelection) => {
     try {
       setSelectedSubject(subject);
@@ -262,7 +238,7 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
         : subject.type;
       setActiveAccordion([section]);
 
-      // Processar OCR após selecionar o sujeito
+      // Tentar OCR automático
       const ocrService = OcrService.getInstance();
       let ocrResult;
       
@@ -272,86 +248,57 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
         ocrResult = await ocrService.extractText(imageFile);
       }
 
-      if (ocrResult) {
-        handleOCRResult(ocrResult, subject);
+      if (ocrResult && ocrResult.success) {
+        // Se OCR teve sucesso, mostrar confirmação
+        setOcrData(ocrResult);
+        setShowConfirmation(true);
+      } else {
+        // Se OCR falhou, mostrar seleção manual
+        setShowFieldSelect(true);
       }
       
       setShowSubjectSelect(false);
     } catch (error) {
       console.error('Erro ao processar OCR:', error);
-      toast({
-        variant: "destructive",
-        title: "Erro ao processar OCR",
-        description: "Não foi possível extrair os dados da imagem.",
-      });
+      // Se der erro, mostrar seleção manual
+      setShowFieldSelect(true);
+      setShowSubjectSelect(false);
     }
   };
 
-  const validateCPF = (cpf: string): boolean => {
-    const cleanCPF = cpf.replace(/\D/g, '');
-    if (cleanCPF.length !== 11) return false;
+  const handleConfirmOCR = () => {
+    if (!selectedSubject || !ocrData) return;
     
-    let sum = 0;
-    for (let i = 0; i < 9; i++) {
-      sum += parseInt(cleanCPF.charAt(i)) * (10 - i);
-    }
-    let digit = 11 - (sum % 11);
-    if (digit >= 10) digit = 0;
-    if (digit !== parseInt(cleanCPF.charAt(9))) return false;
-    
-    sum = 0;
-    for (let i = 0; i < 10; i++) {
-      sum += parseInt(cleanCPF.charAt(i)) * (11 - i);
-    }
-    digit = 11 - (sum % 11);
-    if (digit >= 10) digit = 0;
-    return digit === parseInt(cleanCPF.charAt(10));
+    // Preencher campos do formulário
+    handleOCRResult(ocrData, selectedSubject);
+    setShowConfirmation(false);
   };
 
-  const cleanFieldValue = (field: string, value: string): string => {
-    switch (field) {
-      case 'cpf':
-        const numbers = value.replace(/\D/g, '');
-        return numbers.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
-      case 'rg':
-        return value.replace(/[^\d]/g, '');
-      case 'naturalidade':
-        return value.replace(/Data De Nascimento\s+/i, '').trim();
-      default:
-        return value;
-    }
+  const handleManualSelect = () => {
+    setShowConfirmation(false);
+    setShowFieldSelect(true);
+  };
+
+  const handleFieldSelect = (field: string) => {
+    setSelectedField(field);
+    setShowFieldSelect(false);
+    setShowOCRSelection(true);
   };
 
   const handleOCRResult = async (ocrResult: any, subject: SubjectSelection) => {
     try {
-      if (!subject || !ocrResult) {
-        console.error('Dados do OCR ou sujeito não definidos');
-        return;
-      }
+      if (!subject || !ocrResult) return;
 
-      // Determinar o caminho do campo baseado no tipo de sujeito
+      // Determinar caminho do campo
       const parentKey = subject.type.startsWith('conjuge')
         ? `${subject.type.replace('conjuge', '').toLowerCase()}.conjuge`
         : subject.type;
 
-      // Construir caminho de navegação
-      const navigationPath = ['Documento'];
-      if (documentType === DocumentType.LEASE_CONTRACT) {
-        navigationPath.push('Contrato de Locação');
-        if (subject.type.includes('locador')) navigationPath.push('Locador');
-        if (subject.type.includes('locatario')) navigationPath.push('Locatário');
-      } else if (documentType === DocumentType.SALE_CONTRACT) {
-        navigationPath.push('Contrato de Venda');
-        if (subject.type.includes('vendedor')) navigationPath.push('Vendedor');
-        if (subject.type.includes('comprador')) navigationPath.push('Comprador');
-      }
-      if (subject.type.includes('conjuge')) navigationPath.push('Cônjuge');
-
-      // Atualizar dados do formulário APENAS para o sujeito selecionado
+      // Atualizar APENAS os campos do sujeito selecionado
       const newData = { ...formData };
       if (!newData[parentKey]) newData[parentKey] = {};
 
-      // Mapear campos do OCR para o formulário
+      // Mapear e preencher campos
       const fieldMapping: { [key: string]: string } = {
         nomeCompleto: 'nomeCompleto',
         cpf: 'cpf',
@@ -362,11 +309,9 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
         filiacao: 'filiacao'
       };
 
-      // Preencher campos com dados do OCR APENAS para o sujeito selecionado
       Object.entries(fieldMapping).forEach(([ocrField, formField]) => {
         if (ocrResult.text?.[ocrField]) {
           const cleanValue = cleanFieldValue(ocrField, ocrResult.text[ocrField]);
-          
           if (ocrField === 'cpf' && !validateCPF(cleanValue)) {
             toast({
               variant: "warning",
@@ -375,32 +320,32 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
             });
             return;
           }
-
           newData[parentKey][formField] = cleanValue;
         }
       });
 
-      // Atualizar estado do formulário
+      // Atualizar formulário
       setFormData(newData);
       onFormDataChange?.(newData);
 
       toast({
         title: "Dados extraídos",
-        description: `Os campos de ${subject.label} foram preenchidos com os dados do OCR.`,
+        description: `Os campos de ${subject.label} foram preenchidos.`,
       });
 
-      // Limpar dados temporários
+      // Limpar estados temporários
       setOcrData(null);
       setCapturedImage('');
       setImageFile(null);
       
     } catch (error) {
-      console.error('Erro ao processar resultado do OCR:', error);
+      console.error('Erro ao processar OCR:', error);
       toast({
         variant: "destructive",
         title: "Erro ao processar OCR",
-        description: "Não foi possível atualizar os campos com o texto extraído.",
+        description: "Não foi possível preencher os campos. Use a seleção manual.",
       });
+      setShowFieldSelect(true);
     }
   };
 
@@ -783,10 +728,166 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
         </div>
       )}
 
-      <OcrReportDialog
-        open={showOcrReport}
-        onOpenChange={setShowOcrReport}
-      />
+      {showConfirmation && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-[400px] p-6">
+            <h3 className="text-xl font-semibold mb-4">Confirmar Dados Extraídos</h3>
+            <div className="space-y-4">
+              {ocrData && Object.entries(ocrData.text).map(([field, value]) => (
+                <div key={field} className="flex justify-between items-center">
+                  <span className="font-medium">{field}:</span>
+                  <span>{value as string}</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2 mt-4">
+              <Button
+                variant="default"
+                className="flex-1"
+                onClick={handleConfirmOCR}
+              >
+                Confirmar
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={handleManualSelect}
+              >
+                Seleção Manual
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {showFieldSelect && (
+        <OCRFieldSelectDialog
+          open={showFieldSelect}
+          onOpenChange={setShowFieldSelect}
+          documentType={documentType}
+          onFieldSelect={handleFieldSelect}
+        />
+      )}
+
+      {showOCRSelection && (
+        <OCRSelectionArea
+          imageUrl={capturedImage}
+          open={showOCRSelection}
+          onOpenChange={setShowOCRSelection}
+          onSelect={handleOCRResult}
+          availableFields={[
+            { label: 'Nome Completo', value: 'nomeCompleto' },
+            { label: 'CPF', value: 'cpf' },
+            { label: 'RG', value: 'numeroDocumento' },
+            { label: 'Data de Expedição', value: 'dataExpedicao' },
+            { label: 'Data de Nascimento', value: 'dataNascimento' },
+            { label: 'Naturalidade', value: 'naturalidade' },
+            { label: 'Filiação', value: 'filiacao' },
+          ]}
+        />
+      )}
+
+      <div className="space-y-4">
+        <div className="flex items-center space-x-2 mb-4">
+          <Checkbox
+            id="useSystemDate"
+            checked={useSystemDate}
+            onCheckedChange={(checked) => setUseSystemDate(checked as boolean)}
+          />
+          <Label htmlFor="useSystemDate">Usar data do sistema</Label>
+        </div>
+
+        <Accordion 
+          type="multiple" 
+          value={activeAccordion}
+          onValueChange={setActiveAccordion}
+          className="w-full space-y-4"
+        >
+          {documentType === DocumentType.LEASE_CONTRACT && (
+            <>
+              <AccordionItem value="locador">
+                <AccordionTrigger>Informações do Locador</AccordionTrigger>
+                <AccordionContent>
+                  <DocumentSection
+                    fields={formData.locador}
+                    parent="locador"
+                    onInputChange={handleInputChange}
+                    useSystemDate={useSystemDate}
+                  />
+                  {renderConjugeSection('locador', true, incluirConjugeLocador, setIncluirConjugeLocador)}
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="locatario">
+                <AccordionTrigger>Informações do Locatário</AccordionTrigger>
+                <AccordionContent>
+                  <DocumentSection
+                    fields={formData.locatario}
+                    parent="locatario"
+                    onInputChange={handleInputChange}
+                    useSystemDate={useSystemDate}
+                  />
+                  {renderConjugeSection('locatario', true, incluirConjugeLocatario, setIncluirConjugeLocatario)}
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="imovel">
+                <AccordionTrigger>Informações do Imóvel</AccordionTrigger>
+                <AccordionContent>
+                  <DocumentSection
+                    fields={formData.imovel}
+                    parent="imovel"
+                    onInputChange={handleInputChange}
+                    useSystemDate={useSystemDate}
+                  />
+                </AccordionContent>
+              </AccordionItem>
+            </>
+          )}
+
+          {documentType === DocumentType.SALE_CONTRACT && (
+            <>
+              <AccordionItem value="vendedor">
+                <AccordionTrigger>Informações do Vendedor</AccordionTrigger>
+                <AccordionContent>
+                  <DocumentSection
+                    fields={formData.vendedor}
+                    parent="vendedor"
+                    onInputChange={handleInputChange}
+                    useSystemDate={useSystemDate}
+                  />
+                  {renderConjugeSection('vendedor')}
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="comprador">
+                <AccordionTrigger>Informações do Comprador</AccordionTrigger>
+                <AccordionContent>
+                  <DocumentSection
+                    fields={formData.comprador}
+                    parent="comprador"
+                    onInputChange={handleInputChange}
+                    useSystemDate={useSystemDate}
+                  />
+                  {renderConjugeSection('comprador')}
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="imovel">
+                <AccordionTrigger>Informações do Imóvel</AccordionTrigger>
+                <AccordionContent>
+                  <DocumentSection
+                    fields={formData.imovel}
+                    parent="imovel"
+                    onInputChange={handleInputChange}
+                    useSystemDate={useSystemDate}
+                  />
+                </AccordionContent>
+              </AccordionItem>
+            </>
+          )}
+        </Accordion>
+      </div>
 
       <div className="mt-8 flex justify-end">
         <Button 
