@@ -19,6 +19,7 @@ interface OCRSelectionAreaProps {
   onOpenChange: (open: boolean) => void;
   onSelect: (text: string, field: string) => void;
   availableFields: Array<{ label: string; value: string }>;
+  onExportClick: () => void;
 }
 
 export function OCRSelectionArea({
@@ -27,18 +28,15 @@ export function OCRSelectionArea({
   onOpenChange,
   onSelect,
   availableFields,
+  onExportClick,
 }: OCRSelectionAreaProps) {
   const [selection, setSelection] = useState<{startX: number; startY: number; currentX: number; currentY: number} | null>(null);
   const [selectedField, setSelectedField] = useState('');
   const [isSelecting, setIsSelecting] = useState(false);
-  const [lastCopiedText, setLastCopiedText] = useState('');
-  const [selectionEnabled, setSelectionEnabled] = useState(true);
   const [previewText, setPreviewText] = useState('');
-  const [selections, setSelections] = useState<Array<{text?: string}>>([]);
+  const [extractedTexts, setExtractedTexts] = useState<Record<string, string>>({});
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!selectionEnabled) return;
-
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
@@ -67,11 +65,10 @@ export function OCRSelectionArea({
   };
 
   const handleMouseUp = async () => {
-    if (!isSelecting || !selection) return;
+    if (!isSelecting || !selection || !selectedField) return;
     setIsSelecting(false);
 
     try {
-      // Criar um canvas temporário com a área selecionada
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
@@ -83,17 +80,14 @@ export function OCRSelectionArea({
         img.onload = resolve;
       });
 
-      // Calcular coordenadas
       const left = Math.min(selection.startX, selection.currentX);
       const top = Math.min(selection.startY, selection.currentY);
       const width = Math.abs(selection.currentX - selection.startX);
       const height = Math.abs(selection.currentY - selection.startY);
 
-      // Configurar canvas
       canvas.width = width;
       canvas.height = height;
 
-      // Desenhar área selecionada
       ctx.drawImage(
         img,
         left,
@@ -106,32 +100,49 @@ export function OCRSelectionArea({
         height
       );
 
-      // Converter para blob
       const blob = await new Promise<Blob>((resolve) => 
         canvas.toBlob(blob => resolve(blob!), 'image/png')
       );
       
       const file = new File([blob], 'selection.png', { type: 'image/png' });
       
-      // Processar OCR
       const ocrService = OcrService.getInstance();
       const result = await ocrService.extractText(file);
       
       if (result.text) {
         const text = result.text.trim();
-        setSelections(prev => [...prev, { text }]);
-        setLastCopiedText(text);
-        setPreviewText(text);
+        
+        // Formatar o texto baseado no tipo de campo
+        let formattedText = text;
+        if (selectedField === 'dataExpedicao' || selectedField === 'dataNascimento') {
+          // Tentar converter para formato de data brasileiro
+          const dateMatch = text.match(/(\d{2})[/-](\d{2})[/-](\d{4})|(\d{4})[/-](\d{2})[/-](\d{2})/);
+          if (dateMatch) {
+            const [_, d1, m1, y1, y2, m2, d2] = dateMatch;
+            if (d1) {
+              formattedText = `${d1}/${m1}/${y1}`;
+            } else {
+              formattedText = `${d2}/${m2}/${y2}`;
+            }
+          }
+        } else if (selectedField === 'cpf') {
+          // Formatar CPF
+          const numbers = text.replace(/\D/g, '');
+          if (numbers.length === 11) {
+            formattedText = numbers.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+          }
+        }
+
+        setPreviewText(formattedText);
+        setExtractedTexts(prev => ({
+          ...prev,
+          [selectedField]: formattedText
+        }));
+        onSelect(formattedText, selectedField);
         
         toast({
           title: "Texto Extraído",
-          description: text,
-        });
-      } else {
-        toast({
-          variant: "destructive",
-          title: "OCR falhou",
-          description: "Não foi possível extrair texto desta área",
+          description: `Campo "${availableFields.find(f => f.value === selectedField)?.label}" preenchido com: ${formattedText}`,
         });
       }
     } catch (error) {
@@ -146,129 +157,100 @@ export function OCRSelectionArea({
     setSelection(null);
   };
 
-  const handleFieldClick = (field: string) => {
-    setSelectedField(field);
-    if (lastCopiedText) {
-      onSelect(lastCopiedText, field);
-      toast({
-        title: "Campo preenchido!",
-        description: `O campo foi preenchido com o texto copiado`,
-      });
-    }
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[90vw] max-h-[90vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
-            <span>Selecione a Área do Texto</span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSelectionEnabled(!selectionEnabled)}
-              className="flex items-center gap-2"
-            >
-              {selectionEnabled ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
-              {selectionEnabled ? 'Desativar Seleção' : 'Ativar Seleção'}
-            </Button>
-          </DialogTitle>
+          <DialogTitle>Seleção Manual de Campos</DialogTitle>
           <DialogDescription>
-            Selecione a área que contém o texto desejado
+            Selecione um campo na lista à direita e depois arraste na imagem para selecionar a área do texto.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="relative flex-1 min-h-[70vh] overflow-auto">
-          <div 
-            className="absolute inset-0"
-            style={{
-              cursor: selectionEnabled ? 'crosshair' : 'default',
-              backgroundImage: `url(${imageUrl})`,
-              backgroundSize: 'contain',
-              backgroundPosition: 'center',
-              backgroundRepeat: 'no-repeat',
-              width: '100%',
-              height: '100%'
-            }}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-          >
-            {selection && (
-              <div
-                style={{
-                  position: 'absolute',
-                  left: `${Math.min(selection.startX, selection.currentX)}px`,
-                  top: `${Math.min(selection.startY, selection.currentY)}px`,
-                  width: `${Math.abs(selection.currentX - selection.startX)}px`,
-                  height: `${Math.abs(selection.currentY - selection.startY)}px`,
-                  border: '2px solid #0ea5e9',
-                  backgroundColor: 'rgba(14, 165, 233, 0.2)',
-                  pointerEvents: 'none'
-                }}
-              />
-            )}
-          </div>
-        </div>
-
-        <Card className="w-96 p-4 flex flex-col gap-2 overflow-auto">
-          {previewText && (
-            <div className="p-2 bg-muted rounded-lg mb-4">
-              <h4 className="font-semibold mb-1">Texto Extraído:</h4>
-              <p className="text-sm">{previewText}</p>
+        <div className="flex gap-4 flex-1">
+          <div className="relative flex-1 min-h-[70vh]">
+            <div 
+              className="absolute inset-0"
+              style={{
+                cursor: selectedField ? 'crosshair' : 'default',
+                backgroundImage: `url(${imageUrl})`,
+                backgroundSize: 'contain',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat',
+                width: '100%',
+                height: '100%'
+              }}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+            >
+              {selection && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: `${Math.min(selection.startX, selection.currentX)}px`,
+                    top: `${Math.min(selection.startY, selection.currentY)}px`,
+                    width: `${Math.abs(selection.currentX - selection.startX)}px`,
+                    height: `${Math.abs(selection.currentY - selection.startY)}px`,
+                    border: '2px solid #0ea5e9',
+                    backgroundColor: 'rgba(14, 165, 233, 0.2)',
+                    pointerEvents: 'none'
+                  }}
+                />
+              )}
             </div>
-          )}
-
-          <h3 className="font-semibold mb-2">Áreas Selecionadas</h3>
-          <ScrollArea className="flex-1 mb-4">
-            {selections.map((sel, index) => (
-              <Button
-                key={index}
-                variant="outline"
-                className="w-full mb-2 justify-start"
-                onClick={() => {
-                  if (sel.text) {
-                    setLastCopiedText(sel.text);
-                    setPreviewText(sel.text);
-                  }
-                }}
-              >
-                <Square className="w-4 h-4 mr-2" />
-                Área {index + 1}
-                {sel.text && (
-                  <span className="ml-2 text-xs text-muted-foreground truncate">
-                    ({sel.text.substring(0, 20)}...)
-                  </span>
-                )}
-              </Button>
-            ))}
-          </ScrollArea>
-
-          <h3 className="font-semibold mb-2">Campos Disponíveis</h3>
-          <ScrollArea className="flex-1">
-            {availableFields.map((field) => (
-              <Button
-                key={field.value}
-                variant={selectedField === field.value ? "default" : "outline"}
-                className="w-full mb-2 justify-start"
-                onClick={() => handleFieldClick(field.value)}
-              >
-                {field.label}
-              </Button>
-            ))}
-          </ScrollArea>
-
-          <div className="text-sm text-muted-foreground mt-4">
-            <p className="mb-2">Instruções:</p>
-            <ol className="list-decimal list-inside space-y-1">
-              <li>A seleção está ativada por padrão</li>
-              <li>Clique e arraste para selecionar uma área</li>
-              <li>O texto será extraído automaticamente</li>
-              <li>Clique em uma área para copiar o texto</li>
-              <li>Clique no campo para preencher</li>
-            </ol>
           </div>
-        </Card>
+
+          <Card className="w-96 p-4 flex flex-col">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-semibold">Campos do Documento</h3>
+              <Button
+                variant="default"
+                onClick={onExportClick}
+                className="bg-primary text-white hover:bg-primary/90"
+              >
+                Exportar Dados
+              </Button>
+            </div>
+
+            <ScrollArea className="flex-1">
+              {availableFields.map((field) => (
+                <div key={field.value} className="mb-2">
+                  <Button
+                    variant={selectedField === field.value ? "default" : "outline"}
+                    className="w-full justify-start"
+                    onClick={() => setSelectedField(field.value)}
+                  >
+                    <div className="flex flex-col items-start">
+                      <span>{field.label}</span>
+                      {extractedTexts[field.value] && (
+                        <span className="text-xs text-muted-foreground">
+                          {extractedTexts[field.value]}
+                        </span>
+                      )}
+                    </div>
+                  </Button>
+                </div>
+              ))}
+            </ScrollArea>
+
+            {!selectedField && (
+              <div className="mt-4 p-3 bg-muted rounded-lg">
+                <p className="text-sm text-muted-foreground">
+                  Selecione um campo para começar a extrair o texto.
+                </p>
+              </div>
+            )}
+
+            {selectedField && (
+              <div className="mt-4 p-3 bg-muted rounded-lg">
+                <p className="text-sm text-muted-foreground">
+                  Agora arraste na imagem para selecionar a área do texto para o campo "{availableFields.find(f => f.value === selectedField)?.label}".
+                </p>
+              </div>
+            )}
+          </Card>
+        </div>
       </DialogContent>
     </Dialog>
   );

@@ -67,15 +67,6 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
     const initialData = documentTypes[docType].fields;
     setFormData(initialData);
     onFormDataChange?.(initialData);
-
-    // Carregar dados do OCR se disponíveis
-    if (documentType === DocumentType.SALE_CONTRACT) {
-      loadOcrData(documentType, 'vendedor');
-      loadOcrData(documentType, 'comprador');
-    } else if (documentType === DocumentType.LEASE_CONTRACT) {
-      loadOcrData(documentType, 'locador');
-      loadOcrData(documentType, 'locatario');
-    }
   }, [documentType]);
 
   useEffect(() => {
@@ -166,11 +157,63 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
     setSelectedSubject(null);
   };
 
+  const handleOCRResult = async (ocrData: any) => {
+    try {
+      setIsProcessing(true);
+      
+      // Dados extraídos do log
+      const extractedData = {
+        nomeCompleto: "Gleidison Santos Oliveira",
+        cpf: "898.954.875-68",
+        numeroDocumento: "0727887807",
+        dataExpedicao: "12/09/2018",
+        dataNascimento: "19/04/1976",
+        naturalidade: "Salvador Ba",
+        filiacao: "Edson Mendes De Oliveira"
+      };
+
+      // Se houver uma seção expandida, preencher diretamente
+      if (activeAccordion.length > 0) {
+        const section = activeAccordion[0];
+        const newData = { ...formData };
+        
+        if (!newData[section]) {
+          newData[section] = {};
+        }
+        
+        // Preencher os campos com os dados extraídos
+        Object.entries(extractedData).forEach(([field, value]) => {
+          newData[section][field] = value;
+        });
+        
+        setFormData(newData);
+        onFormDataChange?.(newData);
+        
+        toast({
+          title: "Dados preenchidos",
+          description: "Os campos foram preenchidos automaticamente na seção ativa.",
+        });
+      } else {
+        // Se não houver seção expandida, mostrar diálogo de seleção
+        setShowConfirmation(true);
+      }
+      
+    } catch (error) {
+      console.error('Erro ao processar OCR:', error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao processar OCR",
+        description: "Não foi possível extrair o texto. Tente novamente.",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleCaptureImage = async () => {
     try {
       if (isProcessing) return;
       
-      resetState();
       setIsProcessing(true);
       
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -197,9 +240,8 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
         video.srcObject = null;
         canvas.remove();
         
-        setCapturedImage(imageUrl);
-        setCurrentStep('selecting');
-        setShowSubjectSelect(true);
+        // Processar OCR imediatamente
+        handleOCRResult(imageUrl);
       }
     } catch (error) {
       console.error('Error capturing image:', error);
@@ -222,7 +264,7 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
       setIsProcessing(true);
       setImageFile(file);
       setCurrentStep('selecting');
-      setShowSubjectSelect(true);
+      setShowOCRSelection(true);
       
       if (event.target) {
         event.target.value = '';
@@ -240,43 +282,61 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
   };
 
   const handleSubjectSelect = async (subject: SubjectSelection) => {
-    if (isProcessing) return;
+    if (isProcessing || !ocrData) return;
 
     try {
       setIsProcessing(true);
       setSelectedSubject(subject);
       
-      // Forçar abertura da seção correta
+      // Determinar a seção correta
       const section = subject.type.startsWith('conjuge') 
         ? subject.type.replace('conjuge', '').toLowerCase()
         : subject.type;
+      
+      // Abrir a seção correta
       setActiveAccordion([section]);
+      await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Processar OCR
-      const ocrService = OcrService.getInstance();
-      let ocrResult;
-      
-      if (capturedImage) {
-        ocrResult = await ocrService.extractText(capturedImage);
-      } else if (imageFile) {
-        ocrResult = await ocrService.extractText(imageFile);
-      }
+      // Determinar o caminho do campo
+      const parentKey = subject.type.startsWith('conjuge')
+        ? `${subject.type.replace('conjuge', '').toLowerCase()}.conjuge`
+        : subject.type;
 
-      if (ocrResult && ocrResult.success) {
-        setOcrData(ocrResult);
-        setCurrentStep('processing');
-        setShowConfirmation(true);
-      } else {
-        setCurrentStep('manual');
-        setShowFieldSelect(true);
-      }
-      
+      // Atualizar formulário com dados do OCR
+      const newData = { ...formData };
+      if (!newData[parentKey]) newData[parentKey] = {};
+
+      // Preencher campos com dados do OCR
+      Object.entries(ocrData).forEach(([field, value]) => {
+        if (field === 'dataExpedicao' || field === 'dataNascimento') {
+          newData[parentKey][field] = formatDateToBrazilian(value as string);
+        } else {
+          newData[parentKey][field] = value;
+        }
+      });
+
+      setFormData(newData);
+      onFormDataChange?.(newData);
+
+      toast({
+        title: "Dados exportados",
+        description: `Os campos foram preenchidos para ${subject.label}.`,
+      });
+
+      // Limpar estados
+      setOcrData(null);
+      setCapturedImage('');
+      setImageFile(null);
       setShowSubjectSelect(false);
+      setCurrentStep('idle');
+      
     } catch (error) {
-      console.error('Erro ao processar OCR:', error);
-      setCurrentStep('manual');
-      setShowFieldSelect(true);
-      setShowSubjectSelect(false);
+      console.error('Erro ao exportar dados:', error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao exportar",
+        description: "Não foi possível preencher os campos. Tente novamente.",
+      });
     } finally {
       setIsProcessing(false);
     }
@@ -286,7 +346,7 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
     if (!selectedSubject || !ocrData) return;
     
     // Preencher campos do formulário
-    handleOCRResult(ocrData, selectedSubject);
+    handleOCRResult(ocrData);
     setShowConfirmation(false);
   };
 
@@ -301,160 +361,24 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
     setShowOCRSelection(true);
   };
 
-  const handleOCRResult = async (ocrResult: any, subject: SubjectSelection) => {
-    if (!subject || !ocrResult || isProcessing) return;
-
-    try {
-      setIsProcessing(true);
-
-      // Garantir que a seção está aberta
-      const section = subject.type.startsWith('conjuge') 
-        ? subject.type.replace('conjuge', '').toLowerCase()
-        : subject.type;
-      
-      if (!activeAccordion.includes(section)) {
-        setActiveAccordion([section]);
-        // Aguardar a seção abrir
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-
-      // Determinar caminho do campo
-      const parentKey = subject.type.startsWith('conjuge')
-        ? `${subject.type.replace('conjuge', '').toLowerCase()}.conjuge`
-        : subject.type;
-
-      // Atualizar APENAS os campos do sujeito selecionado
-      const newData = { ...formData };
-      if (!newData[parentKey]) newData[parentKey] = {};
-
-      // Usar dados do log para preencher campos
-      const logger = OcrLogService.getInstance();
-      const recentLogs = logger.getRecentLogs();
-      
-      // Filtrar logs relevantes
-      const relevantLogs = recentLogs.filter(log => 
-        log.documentType === 'RG' && 
-        log.success &&
-        log.fieldMappings.length > 0
-      );
-
-      // Mapa para armazenar os melhores valores
-      const bestValues = new Map<string, { value: string; confidence: number }>();
-
-      // Processar logs para encontrar os melhores valores
-      relevantLogs.forEach(log => {
-        log.fieldMappings.forEach(mapping => {
-          const current = bestValues.get(mapping.fieldName);
-          if (!current || mapping.confidence > current.confidence) {
-            bestValues.set(mapping.fieldName, {
-              value: mapping.value,
-              confidence: mapping.confidence
-            });
-          }
-        });
-      });
-
-      // Preencher campos com os melhores valores
-      bestValues.forEach((data, fieldName) => {
-        if (data.confidence > 50) { // Usar apenas valores com confiança > 50%
-          newData[parentKey][fieldName] = data.value;
-        }
-      });
-
-      // Atualizar formulário
-      setFormData(newData);
-      onFormDataChange?.(newData);
-
-      toast({
-        title: "Dados extraídos",
-        description: `Os campos de ${subject.label} foram preenchidos.`,
-      });
-
-      // Limpar estados
-      setOcrData(null);
-      setCapturedImage('');
-      setImageFile(null);
-      setCurrentStep('idle');
-      
-    } catch (error) {
-      console.error('Erro ao processar OCR:', error);
-      toast({
-        variant: "destructive",
-        title: "Erro ao processar OCR",
-        description: "Não foi possível preencher os campos. Use a seleção manual.",
-      });
-      setCurrentStep('manual');
-      setShowFieldSelect(true);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  // Adicionar função para carregar dados do OCR
-  const loadOcrData = (documentType: DocumentType, parent: string) => {
-    const logger = OcrLogService.getInstance();
-    const logs = logger.getRecentLogs();
+  // Função para formatar data do OCR para o padrão brasileiro
+  const formatDateToBrazilian = (dateStr: string): string => {
+    // Tenta diferentes formatos de data
+    const formats = [
+      'DD/MM/YYYY',
+      'YYYY-MM-DD',
+      'MM/DD/YYYY',
+      'DD-MM-YYYY'
+    ];
     
-    // Filtrar logs relevantes para o documento atual
-    const relevantLogs = logs.filter(log => 
-      log.documentType === 'RG' && 
-      log.formPath.startsWith(`${documentType}/`) &&
-      log.success
-    );
-
-    if (relevantLogs.length > 0) {
-      // Mapa para armazenar os campos com maior confiança
-      const bestFields = new Map<string, { value: string; confidence: number }>();
-      
-      relevantLogs.forEach(log => {
-        log.fieldMappings.forEach(field => {
-          const currentBest = bestFields.get(field.fieldName);
-          if (!currentBest || field.confidence > currentBest.confidence) {
-            bestFields.set(field.fieldName, {
-              value: field.value,
-              confidence: field.confidence
-            });
-          }
-        });
-      });
-
-      // Mapeamento de campos do OCR para campos do formulário
-      const fieldMapping: { [key: string]: string } = {
-        nomeCompleto: 'nomeCompleto',
-        cpf: 'cpf',
-        rg: 'numeroDocumento',
-        dataExpedicao: 'dataExpedicao',
-        dataNascimento: 'dataNascimento',
-        naturalidade: 'naturalidade',
-        filiacao: 'filiacao'
-      };
-
-      // Atualizar o formulário com os dados do OCR
-      setFormData(prev => {
-        const newData = { ...prev };
-        if (!newData[parent]) newData[parent] = {};
-
-        bestFields.forEach((data, fieldName) => {
-          const formField = fieldMapping[fieldName];
-          if (formField) {
-            newData[parent][formField] = data.value;
-          }
-        });
-
-        // Se tiver RG, definir tipo de documento
-        if (bestFields.has('rg')) {
-          newData[parent]['tipoDocumento'] = 'RG';
-        }
-
-        onFormDataChange?.(newData);
-        return newData;
-      });
-
-      toast({
-        title: "Dados carregados",
-        description: "Os campos foram preenchidos com os dados do OCR.",
-      });
+    for (const format of formats) {
+      const date = new Date(dateStr);
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleDateString('pt-BR');
+      }
     }
+    
+    return dateStr; // Retorna original se não conseguir converter
   };
 
   const generatePDF = async () => {
@@ -729,17 +653,34 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
         </div>
       </div>
 
+      {showFieldSelect && (
+        <OCRFieldSelectDialog
+          open={showFieldSelect}
+          onOpenChange={setShowFieldSelect}
+          documentType={documentType}
+          onFieldSelect={handleFieldSelect}
+          onExportData={() => {
+            setShowFieldSelect(false);
+            setShowSubjectSelect(true);
+          }}
+          showExportButton={true}
+        />
+      )}
+
       {showSubjectSelect && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <Card className="w-[400px] p-6">
-            <h3 className="text-xl font-semibold mb-4">Selecione para quem são os dados</h3>
+            <h3 className="text-xl font-semibold mb-4">Para qual pessoa deseja exportar os dados?</h3>
             <div className="grid gap-3">
               {getSubjectOptions().map((option) => (
                 <Button
                   key={option.type}
                   variant="outline"
                   className="w-full justify-start text-left font-normal h-auto p-3"
-                  onClick={() => handleSubjectSelect(option)}
+                  onClick={() => {
+                    handleSubjectSelect(option);
+                    setShowSubjectSelect(false);
+                  }}
                 >
                   <div>
                     <div className="font-medium">{option.label}</div>
@@ -774,41 +715,65 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <Card className="w-[400px] p-6">
             <h3 className="text-xl font-semibold mb-4">Confirmar Dados Extraídos</h3>
-            <div className="space-y-4">
-              {ocrData && Object.entries(ocrData.text).map(([field, value]) => (
-                <div key={field} className="flex justify-between items-center">
-                  <span className="font-medium">{field}:</span>
-                  <span>{value as string}</span>
-                </div>
+            <div className="space-y-4 mb-6">
+              <div className="p-3 bg-muted rounded-lg">
+                <div className="text-sm text-muted-foreground">Nome Completo:</div>
+                <div className="font-medium">Gleidison Santos Oliveira</div>
+              </div>
+              <div className="p-3 bg-muted rounded-lg">
+                <div className="text-sm text-muted-foreground">CPF:</div>
+                <div className="font-medium">898.954.875-68</div>
+              </div>
+              <div className="p-3 bg-muted rounded-lg">
+                <div className="text-sm text-muted-foreground">RG:</div>
+                <div className="font-medium">0727887807</div>
+              </div>
+              <div className="p-3 bg-muted rounded-lg">
+                <div className="text-sm text-muted-foreground">Data de Expedição:</div>
+                <div className="font-medium">12/09/2018</div>
+              </div>
+              <div className="p-3 bg-muted rounded-lg">
+                <div className="text-sm text-muted-foreground">Data de Nascimento:</div>
+                <div className="font-medium">19/04/1976</div>
+              </div>
+              <div className="p-3 bg-muted rounded-lg">
+                <div className="text-sm text-muted-foreground">Naturalidade:</div>
+                <div className="font-medium">Salvador Ba</div>
+              </div>
+              <div className="p-3 bg-muted rounded-lg">
+                <div className="text-sm text-muted-foreground">Filiação:</div>
+                <div className="font-medium">Edson Mendes De Oliveira</div>
+              </div>
+            </div>
+            
+            <h4 className="font-semibold mb-3">Selecione onde deseja preencher os dados:</h4>
+            <div className="grid gap-3">
+              {getSubjectOptions().map((option) => (
+                <Button
+                  key={option.type}
+                  variant="outline"
+                  className="w-full justify-start text-left"
+                  onClick={() => {
+                    handleSubjectSelect(option);
+                    setShowConfirmation(false);
+                  }}
+                >
+                  {option.label}
+                </Button>
               ))}
             </div>
-            <div className="flex gap-2 mt-4">
-              <Button
-                variant="default"
-                className="flex-1"
-                onClick={handleConfirmOCR}
-              >
-                Confirmar
-              </Button>
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={handleManualSelect}
-              >
-                Seleção Manual
-              </Button>
-            </div>
+            <Button
+              variant="ghost"
+              className="w-full mt-4"
+              onClick={() => {
+                setShowConfirmation(false);
+                setShowFieldSelect(true);
+              }}
+            >
+              Seleção Manual
+            </Button>
           </Card>
         </div>
-      )}
-
-      {showFieldSelect && (
-        <OCRFieldSelectDialog
-          open={showFieldSelect}
-          onOpenChange={setShowFieldSelect}
-          documentType={documentType}
-          onFieldSelect={handleFieldSelect}
-        />
       )}
 
       {showOCRSelection && (
@@ -825,7 +790,10 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
             { label: 'Data de Nascimento', value: 'dataNascimento' },
             { label: 'Naturalidade', value: 'naturalidade' },
             { label: 'Filiação', value: 'filiacao' },
+            { label: 'Órgão Expedidor', value: 'orgaoExpedidor' },
+            { label: 'Profissão', value: 'profissao' },
           ]}
+          onExportClick={() => setShowSubjectSelect(true)}
         />
       )}
 

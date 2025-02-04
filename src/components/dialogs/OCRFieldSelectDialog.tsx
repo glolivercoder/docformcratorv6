@@ -6,66 +6,76 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { DocumentType } from '@/types/documents';
+import { DocumentType } from "@/types/documents";
 
 interface OCRFieldSelectDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   documentType: DocumentType;
   onFieldSelect: (field: string) => void;
+  onExportData?: () => void;
+  showExportButton?: boolean;
 }
 
-export function OCRFieldSelectDialog({
+export const OCRFieldSelectDialog = ({
   open,
   onOpenChange,
   documentType,
   onFieldSelect,
-}: OCRFieldSelectDialogProps) {
-  const getFieldOptions = () => {
-    switch (documentType) {
-      case DocumentType.LEASE_CONTRACT:
-        return [
-          { label: 'Locador', value: 'locador' },
-          { label: 'Cônjuge do Locador', value: 'conjugeLocador' },
-          { label: 'Locatário', value: 'locatario' },
-          { label: 'Cônjuge do Locatário', value: 'conjugeLocatario' },
-        ];
-      case DocumentType.SALE_CONTRACT:
-        return [
-          { label: 'Vendedor', value: 'vendedor' },
-          { label: 'Cônjuge do Vendedor', value: 'conjugeVendedor' },
-          { label: 'Comprador', value: 'comprador' },
-          { label: 'Cônjuge do Comprador', value: 'conjugeComprador' },
-        ];
-      default:
-        return [
-          { label: 'Emitente', value: 'emitente' },
-          { label: 'Pagador', value: 'pagador' },
-        ];
+  onExportData,
+  showExportButton = false,
+}: OCRFieldSelectDialogProps) => {
+  const fields = [
+    { label: 'Nome Completo', value: 'nomeCompleto' },
+    { label: 'CPF', value: 'cpf' },
+    { label: 'RG', value: 'numeroDocumento' },
+    { label: 'Data de Expedição', value: 'dataExpedicao' },
+    { label: 'Data de Nascimento', value: 'dataNascimento' },
+    { label: 'Naturalidade', value: 'naturalidade' },
+    { label: 'Filiação', value: 'filiacao' },
+    { label: 'Órgão Expedidor', value: 'orgaoExpedidor' },
+    { label: 'Profissão', value: 'profissao' },
+  ];
+
+  const handleFieldClick = (field: string) => {
+    onFieldSelect(field);
+  };
+
+  const handleExportClick = () => {
+    if (onExportData) {
+      onExportData();
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Selecione o campo para preencher</DialogTitle>
+          <DialogTitle>Selecione os campos para extrair</DialogTitle>
         </DialogHeader>
-        <div className="grid gap-4">
-          {getFieldOptions().map((option) => (
+        <div className="grid gap-3">
+          {fields.map((field) => (
             <Button
-              key={option.value}
+              key={field.value}
               variant="outline"
-              onClick={() => {
-                onFieldSelect(option.value);
-                onOpenChange(false);
-              }}
+              className="w-full justify-start text-left font-normal"
+              onClick={() => handleFieldClick(field.value)}
             >
-              {option.label}
+              {field.label}
             </Button>
           ))}
+          
+          {showExportButton && (
+            <Button
+              variant="default"
+              className="w-full mt-4"
+              onClick={handleExportClick}
+            >
+              Exportar Dados para Usuário
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>
   );
-}
+};
