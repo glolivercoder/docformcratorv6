@@ -1,0 +1,62 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Person {
+  id            String    @id @default(uuid())
+  role          String    // vendedor, comprador, locador, locatario
+  isSpouse      Boolean   @default(false)
+  name          String
+  nationality   String?
+  civilState    String?
+  profession    String?
+  rg            String?
+  rgIssuer      String?
+  rgIssueDate   DateTime?
+  cpf           String?
+  address       String?
+  city          String?
+  state         String?
+  phone         String?
+  email         String?
+  documentType  String?
+  documentNumber String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([cpf])
+  @@index([rg])
+  @@index([documentNumber])
+}
+
+model Document {
+  id          String    @id @default(uuid())
+  type        String    // SALE_CONTRACT, LEASE_CONTRACT
+  status      String    // draft, active, archived
+  title       String
+  content     String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  metadata    Json?     // Campos adicionais específicos do documento
+}
+
+model DocumentTemplate {
+  id          String    @id @default(uuid())
+  name        String
+  type        String    // SALE_CONTRACT, LEASE_CONTRACT
+  content     String
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}

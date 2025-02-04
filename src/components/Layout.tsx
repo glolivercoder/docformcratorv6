@@ -3,7 +3,6 @@ import { Link, useLocation } from 'react-router-dom';
 import { cn } from "@/lib/utils";
 
 const navigationItems = [
-  { name: 'Novo Contrato', path: '/' },
   { name: 'Documentos', path: '/documentos' },
   { name: 'Modelos', path: '/modelos' },
   { name: 'Cadastros', path: '/cadastros' },
