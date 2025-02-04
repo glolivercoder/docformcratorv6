@@ -294,11 +294,17 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
         ? `${subject.type.replace('conjuge', '').toLowerCase()}.conjuge`
         : subject.type;
 
+      // Forçar abertura da seção correta
+      const section = subject.type.startsWith('conjuge') 
+        ? subject.type.replace('conjuge', '').toLowerCase()
+        : subject.type;
+      setActiveAccordion([section]);
+
       // Atualizar APENAS os campos do sujeito selecionado
       const newData = { ...formData };
       if (!newData[parentKey]) newData[parentKey] = {};
 
-      // Mapear e preencher campos
+      // Mapear TODOS os campos possíveis
       const fieldMapping: { [key: string]: string } = {
         nomeCompleto: 'nomeCompleto',
         cpf: 'cpf',
@@ -306,9 +312,24 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
         dataExpedicao: 'dataExpedicao',
         dataNascimento: 'dataNascimento',
         naturalidade: 'naturalidade',
-        filiacao: 'filiacao'
+        filiacao: 'filiacao',
+        orgaoExpedidor: 'orgaoExpedidor',
+        profissao: 'profissao',
+        nacionalidade: 'nacionalidade',
+        estadoCivil: 'estadoCivil',
+        telefone: 'telefone',
+        celular: 'celular',
+        email: 'email',
+        endereco: 'endereco',
+        numero: 'numero',
+        complemento: 'complemento',
+        bairro: 'bairro',
+        cidade: 'cidade',
+        estado: 'estado',
+        cep: 'cep'
       };
 
+      // Preencher campos com dados do OCR
       Object.entries(fieldMapping).forEach(([ocrField, formField]) => {
         if (ocrResult.text?.[ocrField]) {
           const cleanValue = cleanFieldValue(ocrField, ocrResult.text[ocrField]);
@@ -327,6 +348,18 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
       // Atualizar formulário
       setFormData(newData);
       onFormDataChange?.(newData);
+
+      // Registrar no log
+      const logger = OcrLogService.getInstance();
+      Object.entries(fieldMapping).forEach(([ocrField, formField]) => {
+        if (ocrResult.text?.[ocrField]) {
+          logger.logFieldMapping(
+            formField,
+            ocrResult.text[ocrField],
+            ocrResult.confidence || 0
+          );
+        }
+      });
 
       toast({
         title: "Dados extraídos",
@@ -635,18 +668,13 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
       // Atualizar lista de usuários registrados
       setRegisteredUsers(prev => [...prev, ...usersToSave]);
 
+      // Agora sim, preencher o documento
+      generateDocument();
+
       toast({
         title: "Dados salvos com sucesso",
         description: "Todos os usuários foram salvos no cadastro.",
       });
-
-      // Limpar formulário após salvar
-      const docType = documentType === DocumentType.LEASE_CONTRACT ? 'contratoLocacao' 
-                    : documentType === DocumentType.SALE_CONTRACT ? 'contratoVenda'
-                    : 'recibo';
-      const initialData = documentTypes[docType].fields;
-      setFormData(initialData);
-      onFormDataChange?.(initialData);
 
     } catch (error) {
       console.error('Erro ao salvar formulário:', error);
@@ -656,6 +684,12 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
         description: "Não foi possível salvar os dados. Tente novamente.",
       });
     }
+  };
+
+  // Função para gerar o documento final
+  const generateDocument = () => {
+    // Aqui você implementa a lógica para gerar o documento
+    // Só será chamada após salvar os dados
   };
 
   return (
@@ -898,6 +932,12 @@ const DocumentForm = ({ documentType, onFormDataChange }: DocumentFormProps) => 
           Salvar Todos os Dados
         </Button>
       </div>
+
+      {/* Relatório OCR */}
+      <OcrReportDialog
+        open={showOcrReport}
+        onOpenChange={setShowOcrReport}
+      />
     </div>
   );
 };
